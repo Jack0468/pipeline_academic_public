@@ -1,0 +1,56 @@
+# Settings for scripts/plan_study.py. All times are Australia/Sydney.
+timezone: Australia/Sydney
+start_date: 2027-02-23          # earliest study day. The plan always starts from *now* (rolling re-plan)
+
+# Daily focus blocks [start, end]. Edit freely; re-run to regenerate the .ics.
+blocks:
+  - ["09:00", "10:30"]
+  - ["11:00", "12:30"]
+  - ["13:30", "15:00"]
+  - ["15:30", "17:00"]
+
+# Short evening spaced-review block (recall questions + error log from the last 3 days)
+review_block: ["19:30", "20:15"]
+
+# Weekday overrides: list of block indexes to keep (0-based). Example: lighter Sundays.
+day_overrides:
+  Sun: [0, 1, 2]
+
+# Fixed commitments not in Google Calendar (most come from Google: see GCAL_BUSY_CALENDARS in .env).
+# - {start: 2027-03-06T17:00, end: 2027-03-06T23:00, label: "Work shift"}
+busy: []
+busy_buffer_min: 30             # keep this much free before and after every busy event (travel, reset)
+max_busy_hours: 12              # longer busy blocks are markers ("study period"), not commitments: ignored
+
+# Sleep habits: study only between wake + morning_buffer and bed - wind_down.
+# After an event that ends past bedtime, the next day starts no earlier than its end + min_sleep_hours.
+sleep:
+  wake: "07:00"
+  bed: "23:00"                  # "00:30" etc. means after midnight
+  min_sleep_hours: 8
+  morning_buffer_min: 60
+  wind_down_min: 60
+
+# When an event knocks out a preferred block, move it to another free gap that day.
+reflow: true
+reflow_block_min: 90
+break_min: 30                   # minimum gap between study blocks
+# max_blocks_per_day: 4         # optional cap (e.g. 2 while you're unwell)
+
+exam_buffer_before_min: 90      # no study block this close before an exam (travel, settle)
+exam_buffer_after_min: 60       # rest after an exam
+lock_hours_before_exam: 30      # blocks this close to an exam go only to that exam's unit
+
+# Fraction of each unit's blocks spent in each phase
+phases:
+  coverage: 0.45                # lecture-by-lecture: blurt, then tutorial problems
+  practice: 0.35                # mixed timed problems (interleaved topics) + error log
+  simulate: 0.20                # full papers under exam conditions; finalise notes sheet
+  coverage_max: 0.60            # when behind, coverage may grow to this share before triage kicks in
+
+# Lectures one coverage block can handle properly. More uncovered lectures than
+# (coverage blocks × this) → the plan lists them under "not enough time" (skim/triage).
+lectures_per_block: 2
+
+# grade_recall.py ticks a lecture in progress.md when its recall check scores at least this
+recall_pass: 0.6

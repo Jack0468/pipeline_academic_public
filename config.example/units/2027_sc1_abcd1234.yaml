@@ -1,0 +1,36 @@
+# One file per unit you take: config/units/<year>_<session>_<code>.yaml. Everything unit-specific lives here.
+code: ABCD1234
+name: Example Unit
+session: 2027_sc1                # <year>_sc<semester>; the peer share calls this 2027-S1
+cp: 6                            # credit points
+eihwam_weight: 3                 # W: 0/2/3/4 for 1000/2000/3000/4000+ level
+results_sheet: 2027-sc1-abcd1234 # the unit's sheet in results.xlsx (read-only)
+onedrive_folder: 2027_sc1_abcd1234   # the unit's folder under ONEDRIVE_COURSEWORK
+confidence: 3                    # 1-5, your self-rating; lower gets more study time
+vault_layout: 2                  # the folder standard (docs/VAULT_STANDARD.md)
+assumptions:                     # task name -> fraction, for tasks not marked yet
+  assignment 1: 0.80
+exam:
+  start: 2027-06-14T09:00
+  reading_min: 10
+  writing_min: 120
+  total_marks: 100               # sets the exam pace (writing_min / total_marks min per mark)
+  venue: ""                      # from your personal exam timetable; stays in your config, never shared
+  seat: ""
+  conditions: RESTRICTED open book
+  materials: [Calculator - non-programmable, One A4 sheet of handwritten and/or typed notes double-sided]
+  notes_sheet: 1 x A4 double-sided
+  scope: >-                      # the lecturer's own words about the exam, with the source
+    Example: "all weeks except week 13; one question on each of the four main topics".
+  format: ""                     # e.g. "5 questions, 100 marks"; empty = the model infers it
+onenote:                         # export_onenote.py publishes these sections to PDF
+  notebook: ABCD1234_EXAMPLE
+  sections: [LECTURE, tutorial]
+references:                      # textbooks or sites mocks may draw on (--research)
+  - "A textbook, edition, author"
+sources:                         # globs under the unit's OneDrive folder (${STATE} allowed)
+  lectures: ["lecture/*.pdf", "canvas/Lectures/*.pdf"]
+  handwritten: ["${STATE}/onenote/2027_sc1_abcd1234/*.pdf"]
+  recall_attempts: ["summary_recall/recall_*.pdf"]
+  practice_attempts: ["practice_q/*.pdf"]
+  practice: ["tutorial/*.pdf"]

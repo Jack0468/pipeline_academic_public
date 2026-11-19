@@ -1,0 +1,13 @@
+# Test and lint settings (docs/REFACTOR_PLAN.md, R0). Package metadata and the console entry point come in R1.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["scripts"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"   # peer.py runs on classmates' machines, so new code stays 3.10-compatible
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP"]

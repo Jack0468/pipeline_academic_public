@@ -1,0 +1,20 @@
+# Your own settings and data: never committed
+config/
+.env
+**/.env
+!**/.env.example
+.secrets/
+state/
+out/
+scratch/
+docs/private/
+
+# OS and Python cruft
+Thumbs.db
+.DS_Store
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+*.log

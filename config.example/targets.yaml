@@ -1,0 +1,16 @@
+# Target EIHWAM and assumptions used by scripts/marks.py
+target_eihwam: 75
+
+# Where the results workbook lives (read-only: scripts copy it before reading)
+results_xlsx: "${ONEDRIVE_COURSEWORK}/results.xlsx"
+results_total_sheet: TOTAL-MARKS
+
+# Level -> EIHWAM weight W (0 for 1000-level)
+level_weight: {1: 0, 2: 2, 3: 3, 4: 4}
+
+# Final-year assumption for "target at graduation". VERIFY against your degree handbook.
+final_year:
+  thesis_cp: 12        # e.g. Thesis A + Thesis B, 6 cp each
+  thesis_weight: 8
+  other_cp: 36
+  other_weight: 4

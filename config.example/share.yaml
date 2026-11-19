@@ -1,0 +1,10 @@
+# Regular expressions for text that must never leave your machine. Keep your real copy in config/ (gitignored).
+
+# Names you by: the peer share export (share_vault.py) refuses to write a file that matches one.
+personal_patterns:
+  - '(?i)\byourfirstname\b'
+  - '(?i)yoursurname'
+  - '(?i)your-email-username'
+
+# Only used when publishing the code from a private repo (extra details that would place you).
+publish_block_patterns: []

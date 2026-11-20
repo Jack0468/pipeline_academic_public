@@ -70,6 +70,31 @@ def test_exported_mock_carries_its_uid(mock_md):
     assert out.startswith("---\n") and "mock_uid: 39c172" in out.split("---")[1]
 
 
+def test_shared_notes_from_the_unit_config(tmp_path):
+    unit_dir = tmp_path / "units" / "2026_sc2_test1001"
+    (unit_dir / "sources").mkdir(parents=True)
+    (unit_dir / "sources" / "handwritten_crash course.md").write_text(
+        "---\nunit: TEST1001\nsource: handwritten\ntype: transcription\noriginal: \"file:///x.pdf\"\n---\n"
+        "# Crash course\n\nPole placement matters. [scan](file:///c/x.pdf)\n", "utf-8")
+    u = {"code": "TEST1001", "share": {"notes": [
+        {"file": "sources/handwritten_crash course.md", "as": "crash_course_notes.md", "title": "Crash course notes"},
+        {"file": "../../outside.md", "as": "x.md"},
+        {"file": "sources/missing.md", "as": "y.md"},
+        {"file": "sources/handwritten_crash course.md", "as": "../escape.md"}]}}
+    shared, problems = sv.shared_notes(u, unit_dir, set())
+    assert [n for n, _ in shared] == ["crash_course_notes.md"]
+    text = shared[0][1]
+    front = text.split("---")[1]
+    assert "type: shared notes" in front and "transcription" not in front and "original" not in front
+    assert "> [!info] Crash course notes. Shared from a classmate's own notes" in text
+    assert "file:///" not in text and "Pole placement matters. scan" in text
+    assert len(problems) == 3 and not sv.personal_hits(text)
+
+
+def test_no_shared_notes_without_config(tmp_path):
+    assert sv.shared_notes({"code": "TEST1001"}, tmp_path, set()) == ([], [])
+
+
 def test_peer_tool_passes_the_personal_data_scan():
     """peer.py is copied into the share, so it must never contain anything the scan blocks."""
     assert sv.personal_hits(sv.PEER_SOURCE.read_text("utf-8")) == []

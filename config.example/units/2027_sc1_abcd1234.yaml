@@ -34,3 +34,8 @@ sources:                         # globs under the unit's OneDrive folder (${STA
   recall_attempts: ["summary_recall/recall_*.pdf"]
   practice_attempts: ["practice_q/*.pdf"]
   practice: ["tutorial/*.pdf"]
+share:                           # extra notes share_vault.py exports to the group's notes/ folder (optional)
+  notes:
+    - file: "sources/handwritten_crash course.md"   # path inside the unit's vault folder
+      as: crash_course_notes.md                     # name in the share
+      title: Crash course notes, with the tutor's advice

@@ -60,6 +60,24 @@ the top-level files. The dry run lists what would be removed as `(remove) ...`.
 If OneDrive or an open window holds a file, the run finishes and prints `WARN remove ...` for it instead of
 stopping. Close Explorer/Obsidian windows on the folder, let OneDrive finish syncing, and run it again.
 
+## Sharing one of your own notes on purpose
+
+Your own notes are never exported by default. To share a particular one with the group (crash-course notes, a
+study guide you wrote), list it in the unit's config:
+
+```yaml
+share:
+  notes:
+    - file: "sources/handwritten_crash course.md"   # path inside the unit's vault folder
+      as: crash_course_notes.md                     # name in the share: <unit>/<session>/notes/
+      title: Crash course notes, with the tutor's advice
+```
+
+It goes out cleaned like a recall file: local links and transcription details removed, front matter `type: shared
+notes`. A line at the top says it is a classmate's own notes, transcribed by AI and unofficial. The personal-data scan
+applies to it like every other file. Everything in the note goes out, including your `[!mine]` and `[!confused]`
+callouts and any names it mentions, so read it first.
+
 ## Held-back mocks: questions that mirror an assignment
 
 Mock writers are told to re-test what went wrong in your assignments "in a new context", so some

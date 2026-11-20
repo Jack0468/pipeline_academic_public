@@ -53,7 +53,7 @@ from pathlib import Path
 
 import peer
 from common import (CONFIG, ONEDRIVE_COURSEWORK, STATE, TZ, VAULT, exam_over, load_units, load_yaml, no_emoji,
-                    unit_path)
+                    unit_path, vault_unit_dir)
 
 MARKER = peer.MARKER
 PEER_SOURCE = Path(__file__).with_name("peer.py")
@@ -96,6 +96,15 @@ def with_front(md: str, key: str, value: str) -> str:
     if re.match(r"---\r?\n", md):
         return re.sub(r"\A---\r?\n", f"---\n{key}: {value}\n", md, count=1)
     return f"---\n{key}: {value}\n---\n" + md
+
+
+def set_front(md: str, key: str, value: str) -> str:
+    """md with front-matter `key` set to value, replacing an existing one."""
+    m = re.match(r"---\r?\n(.*?)\r?\n---\r?\n", md, re.S)
+    if m and re.search(rf"(?m)^{re.escape(key)}:", m.group(1)):
+        body = re.sub(rf"(?m)^{re.escape(key)}:.*$", f"{key}: {value}", m.group(1), count=1)
+        return md[:m.start(1)] + body + md[m.end(1):]
+    return with_front(md, key, value)
 
 
 def mock_results(code: str, session: str, n: int, q_md: str, s_md: str, inbox: Path,
@@ -241,7 +250,35 @@ def readme_unit(u, files: dict[str, list[str]], outline: str) -> str:
          f"| `outline.md` | official outline: learning outcomes, assessment, weekly schedule | 1 |"]
     if files.get("handbook"):
         L.append("| `handbook.md` | exam lookup handbook: formulas with units and conditions, traps, concepts | 1 |")
+    if files.get("notes"):
+        L.append(f"| `notes/` | notes shared from a classmate's own study (unofficial; check against the slides): "
+                 f"{', '.join(files['notes'])} | {len(files['notes'])} |")
     return "\n".join(L) + "\n"
+
+
+SHARED_NOTE = ("> [!info] {title}. Shared from a classmate's own notes (handwriting transcribed by AI), so check anything "
+               "that matters against the slides. Advice in it is what was said at the time, not official.\n\n")
+
+
+def shared_notes(u: dict, unit_dir: Path, names: set[str]) -> tuple[list[tuple[str, str]], list[str]]:
+    """Extra notes the unit's config chooses to share (`share.notes`: crash-course notes, a study guide), cleaned like
+    recall files, typed `shared notes` and headed with what they are. -> ([(file name, text)], problems)"""
+    out, problems = [], []
+    for i, entry in enumerate(((u.get("share") or {}).get("notes")) or []):
+        src = (unit_dir / str(entry.get("file", ""))).resolve()
+        name = str(entry.get("as") or "")
+        where = f"{u['code']} share.notes[{i}]"
+        if not re.fullmatch(r"[\w.-]+\.md", name):
+            problems.append(f"{where}: `as` must be a plain file name ending in .md, got {name!r}")
+        elif unit_dir.resolve() not in src.parents or not src.is_file():
+            problems.append(f"{where}: no such file inside the unit folder: {entry.get('file')!r}")
+        else:
+            text = clean(set_front(src.read_text("utf-8"), "type", "shared notes"), names)
+            head = SHARED_NOTE.format(title=entry.get("title") or "Shared notes")
+            m = re.match(r"---\n.*?\n---\n", text, re.S)
+            text = text[:m.end()] + "\n" + head + text[m.end():].lstrip("\n") if m else head + text
+            out.append((name, text))
+    return out, problems
 
 
 TOP_README = """# USyd course study notes (peer share)
@@ -352,6 +389,10 @@ def main() -> None:
         outline = outline_md(u)
         if outline:
             plan.append((base / "outline.md", clean(outline, names)))
+        shared, msgs = shared_notes(u, vault_unit_dir(u), names)
+        notes += msgs
+        plan += [(base / "notes" / name, text) for name, text in shared]
+        files["notes"] = [name for name, _ in shared]
         handbook = unit_path(u, "handbook")
         if a.include_handbook and handbook.exists():
             plan.append((base / "handbook.md", clean(handbook.read_text("utf-8"), names)))

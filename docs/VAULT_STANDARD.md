@@ -32,12 +32,14 @@ units/<year>_<session>_<code>/
 │                         mock_exam_<n>.md + mock_exam_<n>_solutions.md
 │                         worked_examples_<topic>.md and .pdf (attempt-first sheets)
 │                         error_log.md, stuck_log.md, past_papers.md
+│                         tutorials.md (each tutorial sheet + your working for it; link_tutorials.py)
 ├── recall_checks/      AI marking of your recall attempts
 ├── practice_checks/    AI marking of your practice attempts
 ├── exam_room/          what goes into the exam: handbook, worked examples by type, their PDFs
 ├── reference/          facts to look up: unit_outline.md, canvas.md, exam_intel.md
 ├── sources/            transcriptions of your handwriting, converted third-party notes
 ├── slides/             copies of the lecture PDFs (rebuilt by link_slides.py)
+├── tutorials/          copies of the tutorial sheets and your tutorial-notes PDFs (rebuilt by link_tutorials.py)
 ├── EXAM_<year>/        after the exam: your recall of it and the reconstruction
 └── _archive/           superseded versions and migration records; never edited
 ```

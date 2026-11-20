@@ -27,7 +27,7 @@ FRONT = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.S)
 
 
 def live_files(root: Path) -> list[Path]:
-    skip = {"_archive", "slides"}
+    skip = {"_archive", "slides", "tutorials"}                  # slides/, tutorials/: copies of OneDrive PDFs
     return sorted(p for p in root.rglob("*") if p.is_file() and not skip & set(p.relative_to(root).parts))
 
 

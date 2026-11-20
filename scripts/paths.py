@@ -66,6 +66,7 @@ _LAYOUT_1 = {
     "past_papers": "practice/past_papers.md",
     "sources": "sources",
     "slides": "slides",
+    "tutorials": "tutorials",
     "archive": "_archive",
 }
 _LAYOUT_2 = {
@@ -85,9 +86,9 @@ CURRENT_LAYOUT = 2
 
 # What may sit in a layout 2 unit folder (check_vault.py enforces it; EXAM_<year>/ is added by reconstruct_exam.py).
 ROOT_NOTES = {"_unit.md", "exam_plan.md", "notes_sheet.md"}
-UNIT_FOLDERS = {"recall", "recall_checks", "practice", "practice_checks", "sources", "slides", "reference",
-                "exam_room", "_archive"}
-PDF_FOLDERS = {"exam_room", "practice", "slides", "_archive"}
+UNIT_FOLDERS = {"recall", "recall_checks", "practice", "practice_checks", "sources", "slides", "tutorials",
+                "reference", "exam_room", "_archive"}
+PDF_FOLDERS = {"exam_room", "practice", "slides", "tutorials", "_archive"}
 
 
 def layout(u: dict) -> int:
@@ -107,7 +108,7 @@ def note_type(rel: str) -> str | None:
              "exam_room/worked_examples.md": "worked examples",
              "exam_room/worked_examples_types.md": "worked-example types",
              "practice/error_log.md": "error log", "practice/stuck_log.md": "stuck log",
-             "practice/past_papers.md": "practice log"}
+             "practice/past_papers.md": "practice log", "practice/tutorials.md": "tutorial index"}
     if rel in exact:
         return exact[rel]
     folder, _, name = rel.partition("/")

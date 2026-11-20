@@ -21,3 +21,4 @@ foreach ($u in $units.Split(" ")) {
 }
 & $py scripts\pace_recall.py | Tee-Object -FilePath $log -Append   #  times on new recall files
 & $py scripts\link_slides.py | Tee-Object -FilePath $log -Append   # make new recall files' "p. N" refs clickable
+& $py scripts\link_tutorials.py | Tee-Object -FilePath $log -Append   # new transcriptions -> pages per tutorial

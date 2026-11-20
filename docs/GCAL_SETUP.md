@@ -20,8 +20,11 @@
 
 ## Logging in
 Each login opens the browser. Pick the account named, then click "Google hasn't verified this
-app → Continue" (it's your own app in testing mode).
+app → Continue" (it's your own app in testing mode). Run these in the `pipeline_academic` env
+(`conda activate pipeline_academic` first). Base Python has no Google libraries and fails with
+`No module named 'google_auth_oauthlib'`.
 ```
+conda activate pipeline_academic
 python scripts\gcal_sync.py auth --discover --events                     # pick the main account
 python scripts\gcal_sync.py auth --account gmail --discover --events     # an extra account, labelled "gmail"
 python scripts\gcal_sync.py status                                       # check every account + sources
@@ -31,9 +34,13 @@ powershell -File scripts\refresh.ps1
   ones shared from other accounts.
 - **`--events`:** read events one by one (read-only) instead of merged free/busy blocks. See below.
 - **The main login must be the account that owns the study calendar.** A different account gets
-  "can't write to the study calendar", and nothing is changed.
-- **Testing-mode tokens expire after 7 days.** When refresh says "Not logged in", rerun the two
-  `auth` lines (30 s).
+  "can't write to the study calendar", and nothing is changed. `auth` warns if you pick the wrong
+  one. To fix a mix-up, rerun both `auth` lines and pick the right account each time. `auth` always
+  shows the picker and replaces that login's token.
+- **Testing-mode tokens expire after 7 days.** When refresh says "Not logged in or login
+  expired", rerun the two `auth` lines (30 s). `auth` notices the dead token and opens the browser.
+  To stop the weekly expiry, publish the app (**Google Auth Platform → Audience → Publish app**).
+  It stays unverified, so you still click through the warning, but tokens no longer expire after 7 days.
 
 ## Which events count as busy
 With `--events`, each event is judged on its own:

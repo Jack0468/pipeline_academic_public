@@ -64,21 +64,29 @@ def extra_accounts() -> list[str]:
 
 
 def service(interactive: bool = False, discover: bool = False, account: str | None = None, events: bool = False):
+    from google.auth.exceptions import RefreshError
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
     tok = token_path(account)
     want = ((SCOPES if not account else [SCOPES[1]]) + ([LIST_SCOPE] if discover else [])
             + ([EVENTS_SCOPE] if events else []))
-    creds = Credentials.from_authorized_user_file(str(tok)) if tok.exists() else None   # keeps granted scopes
-    if interactive and creds and not set(want) <= set(creds.scopes or []):
-        creds = None                                     # asked for a new scope: log in again
+    try:
+        creds = Credentials.from_authorized_user_file(str(tok)) if tok.exists() else None   # keeps granted scopes
+    except ValueError:                                   # unreadable or incomplete token file: treat as logged out
+        creds = None
+    if interactive:
+        creds = None                                     # auth always shows the account picker, so a wrong login can be redone
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-    elif not creds or not creds.valid:
+        try:
+            creds.refresh(Request())
+        except RefreshError:                             # revoked or expired (testing-mode tokens last 7 days)
+            creds = None
+    if not creds or not creds.valid:
         if not interactive:
-            sys.exit(f"Not logged in ({account or 'main'} account): run  python scripts/gcal_sync.py auth"
-                     + (f" --account {account}" if account else "") + "  (see docs/GCAL_SETUP.md)")
+            sys.exit(f"Not logged in or login expired ({account or 'main'} account): run  python scripts/gcal_sync.py "
+                     "auth --discover --events" + (f" --account {account}" if account else "")
+                     + "  (see docs/GCAL_SETUP.md)")
         if not CLIENT.exists():
             sys.exit(f"Missing OAuth client file {CLIENT} (see docs/GCAL_SETUP.md)")
         from google_auth_oauthlib.flow import InstalledAppFlow
@@ -379,8 +387,16 @@ def main() -> None:
         print(f"  logged in as {account_email(svc)} ({a.account or 'main'}); token {token_path(a.account).name}; "
               f"calendar-list discovery: {'on' if LIST_SCOPE in _scopes else 'off'}; "
               f"event-level reading: {'on' if EVENTS_SCOPE in _scopes else 'off'}")
-        for cid, name in busy_calendars(svc, BUSY_CALS if not a.account else []).items():
+        for _cid, name in busy_calendars(svc, BUSY_CALS if not a.account else []).items():
             print(f"    busy source: {name}")
+        own = load_state().get("calendar_id")
+        role = next((c.get("accessRole") for c in calendar_list(svc) if c["id"] == own), None) if own else None
+        if not a.account and role and role != "owner":
+            print(f"  WARN this account is only '{role}' on '{CAL_NAME}': the main login must be the account that "
+                  "owns it. Run auth again and pick that account; log this one in with --account <label>.")
+        elif a.account and role == "owner":
+            print(f"  WARN this account owns '{CAL_NAME}': it should be the main login (auth without --account), "
+                  "not an extra one.")
     elif a.command == "busy":
         cmd_busy()
     elif a.command == "push":

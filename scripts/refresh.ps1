@@ -27,6 +27,7 @@ if (Select-String -Path ".env" -Pattern "^CANVAS_TOKEN=." -Quiet) {
 & $py scripts\scaffold_vault.py
 & $py scripts\pace_recall.py | Out-Null             # time allocation per exam-style question
 & $py scripts\link_slides.py | Out-Null             # slide copies in the vault + clickable "p. N" links
+& $py scripts\link_tutorials.py | Out-Null          # tutorial sheets in the vault + your working per tutorial
 # Handbook: only on request, per subject (build_handbook.py --unit X --pdf), never from here (rule since 2026-11-18)
 & $py scripts\check_no_emoji.py | Select-Object -Last 1   # rule: no emojis anywhere (fix: check_no_emoji.py --fix)
 & $py scripts\check_vault.py --brief                       # units on the folder standard (docs/VAULT_STANDARD.md); read-only

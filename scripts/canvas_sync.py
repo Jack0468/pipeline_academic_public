@@ -14,13 +14,13 @@ Per unit:
                                    which is part of the unit's lecture sources (→ recall material)
   - <unit OneDrive folder>/canvas/<module>/   mirror of the course's module files: File items, and files
                                    linked inside module Pages (units that post slides on weekly pages).
-                                   A file whose bytes you already have anywhere in the unit folder is not
-                                   saved again (canvas.md says where yours is). Images and videos are skipped
+                                   THE GROUND TRUTH for lectures and tutorials (since 2026-11-20): every file
+                                   is saved here, even if you have a copy elsewhere, and the unit config's
+                                   lecture and tutorial globs point here. Images and videos are skipped
                                    (--videos adds videos). state/canvas/<id>/module_files.json remembers each
                                    file's Canvas version, so re-runs fetch only what changed. Nothing is
                                    deleted, and nothing is added to the pipeline's sources automatically:
-                                   canvas.md lists saved files no `sources:` glob covers yet, because a second
-                                   copy of a lecture you already have would relabel its recall files.
+                                   canvas.md lists saved files no `sources:` glob covers yet.
                                    (The course Files area itself returns 403 to students at USyd; modules don't.)
 It also compares Canvas scores with the marks the unit config still *assumes*, so you know what
 to update in results.xlsx (which scripts never write to).
@@ -31,7 +31,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import html
 import json
 import os
@@ -44,7 +43,7 @@ from datetime import datetime
 from pathlib import Path
 
 from common import ALLOW_SAT_HELP, work_units
-from common import STATE, TZ, file_hash, find_sources, load_units, unit_dir, unit_path
+from common import STATE, TZ, find_sources, load_units, unit_dir, unit_path
 
 BASE = os.environ.get("CANVAS_BASE", "https://canvas.sydney.edu.au").rstrip("/")
 EXAMY = re.compile(r"\bexam|final|revision|review|scope|formula sheet|cheat sheet|study vac", re.I)
@@ -181,19 +180,16 @@ def local_name(f: dict) -> str:
 def sync_module_files(u: dict, cid: int, videos: bool = False) -> dict:
     """Mirror the course's module files into <unit OneDrive folder>/canvas/<module>/.
 
-    A file is saved only if its bytes aren't already somewhere in the unit folder (your own copy wins, and is
-    recorded as such). state/canvas/<id>/module_files.json remembers each Canvas file's version, so re-runs
+    Every file is saved here, even when you have a copy elsewhere in the unit folder: since 2026-11-20 the mirror is
+    the ground truth for lectures and tutorials, so it must be complete (files an older run skipped as "yours" are
+    fetched on the next run). state/canvas/<id>/module_files.json remembers each Canvas file's version, so re-runs
     fetch only files changed on Canvas. Images (icons, staff photos) are skipped; videos and audio unless
     `videos`. Never deletes anything."""
     root = unit_dir(u) / CANVAS_DIR
     man_path = STATE / "canvas" / u["id"] / "module_files.json"
     man = json.loads(man_path.read_text("utf-8")) if man_path.exists() else {}
-    by_size: dict[int, list[Path]] = {}
-    for p in unit_dir(u).rglob("*"):
-        if p.is_file() and root not in p.parents:
-            by_size.setdefault(p.stat().st_size, []).append(p)
     files, refused = course_files(cid)
-    rows, counts = [], {"new": 0, "updated": 0, "yours": 0, "unchanged": 0, "skipped": 0, "failed": 0}
+    rows, counts = [], {"new": 0, "updated": 0, "unchanged": 0, "skipped": 0, "failed": 0}
     for module, f in files:
         fid, stamp = str(f["id"]), f.get("updated_at") or f.get("modified_at") or ""
         rec = man.get(fid)
@@ -202,7 +198,7 @@ def sync_module_files(u: dict, cid: int, videos: bool = False) -> dict:
         if media_class(f) in skip or f.get("locked_for_user") or not f.get("url"):
             counts["skipped"] += 1
             continue
-        if rec and rec.get("stamp") == stamp and Path(rec["path"]).exists():
+        if rec and rec.get("stamp") == stamp and rec.get("status") != "yours" and Path(rec["path"]).exists():
             counts["unchanged"] += 1
             rows.append({**row, "status": rec["status"], "path": rec["path"]})
             continue
@@ -213,20 +209,14 @@ def sync_module_files(u: dict, cid: int, videos: bool = False) -> dict:
             counts["failed"] += 1
             rows.append({**row, "status": "failed", "path": "", "error": str(e)[:120]})
             continue
-        h = hashlib.sha256(data).hexdigest()[:16]
-        mine = next((p for p in by_size.get(len(data), []) if file_hash(p) == h), None)
-        if mine:
-            status, path = "yours", mine
-        else:
-            path = root / re.sub(r'[<>:"/\\|?*]', "_", module).strip() / row["name"]
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
-            by_size.setdefault(len(data), []).append(path)    # an identical copy in a later module is then "yours"
-            status = "updated" if rec else "new"
-            if path.suffix.lower() in (".pptx", ".ppt"):
-                pptx_to_pdf(path)
+        path = root / re.sub(r'[<>:"/\\|?*]', "_", module).strip() / row["name"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        status = "updated" if rec and rec.get("status") != "yours" else "new"
+        if path.suffix.lower() in (".pptx", ".ppt"):
+            pptx_to_pdf(path)
         counts[status] += 1
-        man[fid] = {"stamp": stamp, "status": "yours" if status == "yours" else "saved", "path": str(path)}
+        man[fid] = {"stamp": stamp, "status": "saved", "path": str(path)}
         rows.append({**row, "status": status, "path": str(path)})
     man_path.parent.mkdir(parents=True, exist_ok=True)
     man_path.write_text(json.dumps(man, indent=2, ensure_ascii=False), "utf-8")
@@ -329,12 +319,11 @@ def render(u: dict, d: dict) -> str:
         rel = lambda p: Path(p).relative_to(base).as_posix() if Path(p).is_relative_to(base) else Path(p).name
         missing = [r for r in mf["rows"] if r["status"] in ("new", "updated", "saved") and not r["in_sources"]]
         L += ["", "## Course files (Canvas modules)",
-              f"Mirrored into the unit's OneDrive folder under `{CANVAS_DIR}/<module>/`; files you already had are "
-              "listed where yours is. Images and videos are not mirrored (`canvas_sync.py --videos` adds videos)."]
+              f"Mirrored into the unit's OneDrive folder under `{CANVAS_DIR}/<module>/`: the ground truth for "
+              "lectures and tutorials. Images and videos are not mirrored (`canvas_sync.py --videos` adds videos)."]
         if missing:
             L += ["", "> [!todo] Saved from Canvas but not in the pipeline's sources (no recall material, mocks or "
-                  "handbook use them yet). Add a glob to `sources:` in the unit config for the ones that matter, "
-                  "unless you already have the same lecture under another name:"]
+                  "handbook use them yet). Add a glob to `sources:` in the unit config for the ones that matter:"]
             L += [f"> - `{rel(r['path'])}` (updated {r['updated']})" for r in missing]
         module = None
         for r in mf["rows"]:
@@ -420,7 +409,7 @@ def main() -> None:
         mf = d.get("module_files")
         if mf:
             c = mf["counts"]
-            print(f"      module files: {c['new']} new, {c['updated']} updated on Canvas, {c['yours']} already yours, "
+            print(f"      module files: {c['new']} new, {c['updated']} updated on Canvas, "
                   f"{c['unchanged']} unchanged, {c['skipped']} skipped (images/videos), {c['failed']} failed"
                   + (f", {mf['refused']} link(s) Canvas refused" if mf["refused"] else ""))
             for r in mf["rows"]:

@@ -4,7 +4,8 @@ Recall files and recall checks cite slide pages ("Method: p. 23", "(pp. 17, 19)"
 are PDF page numbers (the viewer's page, not the number printed on the slide). Obsidian can only open
 PDFs that are inside the vault, so this:
   1. copies each unit's lecture PDFs into <vault>/units/<id>/slides/ (only new or changed files;
-     the folder is gitignored and safe to delete; OneDrive stays the source of truth);
+     the folder is a gitignored cache, safe to delete; the lecture sources, the Canvas mirror for most units, stay
+     the truth). Copies of files that are no longer a lecture source are removed;
   2. rewrites page references in units/<id>/recall/*.md and recall_checks/*.md as
      [[units/<id>/slides/<file>.pdf#page=N|p. N]]. It's idempotent: already-linked references are left alone.
 The file's `slides:` frontmatter says which PDF its pages refer to. Zero AI calls; refresh.ps1 runs it.
@@ -22,7 +23,7 @@ import urllib.parse
 from pathlib import Path
 
 from common import unit_path, ALLOW_SAT_HELP, work_units
-from common import VAULT, find_sources, load_units, vault_unit_dir
+from common import VAULT, find_sources, load_units, prune_cache, vault_unit_dir
 
 PAGE = re.compile(r"(?<![|\w#=])(pp?)\.\s?(\d{1,3})((?:\s?(?:,|–|-|and)\s?\d{1,3})*)(?![\w\]])")
 
@@ -37,6 +38,10 @@ def sync_slides(u) -> dict[str, Path]:
             dst_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
         out[src.name] = dst
+    gone = prune_cache(dst_dir, set(out.values()))
+    if gone:
+        print(f"  {u['code']}: removed {len(gone)} stale slide cop{'y' if len(gone) == 1 else 'ies'} "
+              f"({', '.join(p.name for p in gone[:4])}{'...' if len(gone) > 4 else ''})")
     return out
 
 

@@ -32,7 +32,8 @@ top of the unit folder. Run `check_vault.py --unit X` after changing a unit's fi
 
 | Folder | What goes in | Read by | Config |
 |---|---|---|---|
-| `canvas/<module>/` | Canvas modules mirror (canvas_sync.py, never edit) | the `sources:` globs that point at it | as needed |
+| `canvas/<module>/` | Canvas modules mirror (canvas_sync.py, never edit): **the ground truth for lectures and tutorials**, every module file | `sources.lectures`, `sources.practice`, `sources.tutorial_solutions` point here | the globs |
+| `_superseded/` | old copies a unit's sources no longer use (adopt_sources.py --supersede, logged in MOVED.md) | nothing | none |
 | `exam_info_research/` | word on the street: screenshots, saved posts, `.md` notes of what someone said (role, not name; when; which year) | ingest_intel.py | default, no config needed |
 | `xtra_resources/` | third-party notes: shared formula sheets, condensed notes | mocks; handbook backbone after convert_reference.py | default, no config needed |
 | `notes/` | the student's paper scans | extract_handwriting.py, once added to `sources.handwritten` | add the glob |
@@ -46,9 +47,13 @@ Other students' files (e.g. a lab partner's folder) are never sources.
 2. `scripts\unit_inputs.py --unit X`: every input, where it lives and who reads it, plus checks. Fix the config until
    there is **no CRITICAL** line, and look at every WARN and every "not read" PDF. The usual causes:
    - lecture files moved (fewer lecture PDFs than recall files);
-   - two copies of one lecture (L2a/L2b): choose ONE source, usually the Canvas mirror, the lecturer's current
-     copy. If your old copy differs, the recall files built from it need regenerating. Ask the user first; it
-     changes practice problems they may be using;
+   - two copies of one lecture (L2a/L2b): the Canvas mirror is the one source;
+   - a unit still reading its own copies: point `sources.lectures`, `sources.practice` (tutorials) and
+     `sources.tutorial_solutions` at `canvas/<module>/`, then `adopt_sources.py --unit X` (dry run). Ask the user
+     whether to keep or regenerate recall files whose Canvas version differs (regenerating changes practice
+     problems they may be using). Keeping: `--apply` (with `--map` for merged lectures), then `--supersede` the old
+     copies, then `link_slides.py` and `link_tutorials.py`. A CONFLICT means the old copies were numbered
+     differently: stop and show the user, never force it;
    - an exam guide or sample paper sitting outside every glob: official ones go in `sources.scope`; practice
      papers that aren't official (check the paper's own words) go in `sources.practice`.
 3. Official exam facts (format, total marks, scope) go in `exam.format`, `exam.total_marks` and `exam.scope`,
@@ -104,8 +109,13 @@ Read `exam.conditions` and `exam.notes_sheet`.
   3. The user edits `exam_room/handbook.md`; then `build_handbook.py --unit X --pdf` gives a "Find it" line, a slide-figure appendix,
      the A-Z index and edge tabs (`print:` block in the config; tabs once the section numbers are known).
   4. Print the textbook plus the third-party notes and the tutorial solutions.
-- **Restricted (N x A4):** the notes sheet, built from the error log and the handbook, must fit 2N sides (the
-  cheat-sheet mode, BLUEPRINT; until it is built, draft the handbook and condense by hand).
+- **Restricted (N x A4):** only the sheet goes in, so the handbook is the study reference and the sheet is condensed
+  from it (cheat-sheet mode, docs/HANDBOOK_DESIGN.md):
+  1. Backbone and `build_handbook.py --unit X --draft` as above (for a unit with no third-party sheet, Claude writes
+     `sources/<CODE>_formulas_methods.md`, numbered sections by question type, with provenance).
+  2. Worked examples (below) help most here: their "Recognise it" lines feed the sheet's method chooser.
+  3. `build_cheatsheet.py --unit X --draft` (1 agy call), check every formula against the handbook, then
+     `--pdf`: the largest font from 7 to 5.5 pt that fits 2N sides; it fails rather than run over.
 
 **Worked examples by question type (when the user asks).** Better for the exam room than printing mock solutions: they
 are organised by type, show the method, and cover more types per page.

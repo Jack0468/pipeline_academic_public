@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from common import unit_path, STATE, expand, file_hash, find_sources, lecture_labels, load_units, scope_files, unit_dir, vault_unit_dir
+from common import tutorial_solutions
 
 
 
@@ -35,6 +36,7 @@ class Inputs:
     scope: list[Path]
     lectures: list[Path]
     practice: list[Path]
+    tutorial_solutions: list[Path]        # the course's own (common.tutorial_solutions: files that hold answers)
     own_work: list[Path]
     handwritten_pdfs: list[Path]          # what extract_handwriting.py transcribes
     transcriptions: list[Path]            # vault sources/handwritten_*.md: what the generators read
@@ -50,6 +52,7 @@ class Inputs:
             ("scope (official exam documents)", self.scope, "mocks, reconstructions, intel check"),
             ("lectures", self.lectures, "recall files, mocks, reconstructions, handbook figures"),
             ("practice (tutorials, quizzes, labs)", self.practice, "mocks (style, no repeats)"),
+            ("tutorial solutions (course's own)", self.tutorial_solutions, "tutorial index (after your attempt), worked examples"),
             ("own work", self.own_work, "mocks (re-test what you got wrong)"),
             ("reference notes (third-party)", self.reference, "mocks; handbook backbone via convert_reference.py"),
             ("handwritten PDFs", self.handwritten_pdfs, "extract_handwriting.py"),
@@ -69,6 +72,7 @@ def resolve(u: dict) -> Inputs:
         scope=scope_files(u),
         lectures=find_sources(u, "lectures"),
         practice=find_sources(u, "practice"),
+        tutorial_solutions=[p for p, _ in tutorial_solutions(u)],
         own_work=find_sources(u, "own_work"),
         handwritten_pdfs=find_sources(u, "handwritten"),
         transcriptions=sorted(unit_path(u, "sources").glob("handwritten_*.md")),
@@ -116,7 +120,7 @@ def problems(u: dict, inp: Inputs) -> tuple[list[str], list[str]]:
 def uncovered(u: dict, inp: Inputs) -> list[Path]:
     """PDFs in the unit's OneDrive folder that no source glob covers (excluding the Canvas mirror's leftovers,
     which canvas.md lists)."""
-    used = {p.resolve() for p in inp.scope + inp.lectures + inp.practice + inp.own_work + inp.handwritten_pdfs
+    used = {p.resolve() for p in inp.scope + inp.lectures + inp.practice + inp.tutorial_solutions + inp.own_work + inp.handwritten_pdfs
             + inp.reference + inp.intel_items}
     for kind in ("recall_attempts", "practice_attempts"):
         used |= {p.resolve() for p in find_sources(u, kind)}
@@ -127,7 +131,7 @@ def uncovered(u: dict, inp: Inputs) -> list[Path]:
             return None
     hashes = {h(p) for p in used} - {None}
     base = unit_dir(u)
-    return sorted(p for p in base.rglob("*.pdf") if p.resolve() not in used and "canvas" not in p.relative_to(base).parts
+    return sorted(p for p in base.rglob("*.pdf") if p.resolve() not in used and not {"canvas", "_superseded"} & set(p.relative_to(base).parts)
                   and h(p) not in hashes)          # an identical copy of a file that is read counts as read
 
 

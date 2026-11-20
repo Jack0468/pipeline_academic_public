@@ -4,8 +4,11 @@
      and the handwritten PDFs your tutorial working is in (e.g. the OneNote "tutorial" section export) into
      <vault>/units/<id>/tutorials/. Only new or changed files are copied; the folder is gitignored and safe to
      delete. OneDrive and OneNote stay the source of truth.
-  2. writes units/<id>/practice/tutorials.md: per tutorial, the sheet and every page of your handwritten working
-     for it, each linked to that page of the PDF (opens in Obsidian) and to its transcription.
+  2. copies the course's tutorial solutions (`sources.tutorial_solutions`; common.tutorial_solutions keeps only files
+     that hold answers and finds the page they start on) into the same folder.
+  3. writes units/<id>/practice/tutorials.md: per tutorial, the sheet, every page of your handwritten working for it
+     (each linked to that page of the PDF and to its transcription), then the solutions, linked to the page where
+     the answers start and listed last: attempt first, then check.
 
 Which pages belong to which tutorial comes from the transcriptions (sources/handwritten_*.md, extract_handwriting.py):
 a page heading that names a tutorial ("Week 3 Tutorial ...", "Tutorial 9 question 2 ...") sets it. In a transcription
@@ -28,7 +31,18 @@ import urllib.parse
 from datetime import datetime
 from pathlib import Path
 
-from common import ALLOW_SAT_HELP, TZ, VAULT, Manifest, find_sources, no_emoji, unit_path, work_units
+from common import (
+    ALLOW_SAT_HELP,
+    TZ,
+    VAULT,
+    Manifest,
+    find_sources,
+    no_emoji,
+    prune_cache,
+    tutorial_solutions,
+    unit_path,
+    work_units,
+)
 
 TUT_FILE = re.compile(r"(?i)tut(?:orial)?\D{0,3}(\d{1,2})(?!\d)")
 TUT_HEADING = re.compile(r"(?i)\bweek\s*(\d{1,2})\s*tutorial\b|\btut(?:orial)?\s*(\d{1,2})(?!\d)")
@@ -45,15 +59,28 @@ def copy_in(src: Path, dst_dir: Path) -> Path:
     return dst
 
 
-def tutorial_sheets(u: dict) -> dict[int, list[Path]]:
-    """{tutorial number: sheet PDFs}. A sheet without a number is skipped (it can't be matched to notes)."""
+def tutorial_sheets(u: dict, solutions: set[Path] = frozenset()) -> dict[int, list[Path]]:
+    """{tutorial number: sheet PDFs}. A sheet without a number is skipped (it can't be matched to notes). Files that
+    hold solutions are listed as solutions instead, even when the same glob finds them (a Canvas folder has both)."""
     files = find_sources(u, "tutorials") if (u.get("sources") or {}).get("tutorials") else \
         [p for p in find_sources(u, "practice") if re.search(r"(?i)tut", p.name)]
     out: dict[int, list[Path]] = {}
     for p in files:
+        if p in solutions:
+            continue
         m = TUT_FILE.search(p.stem)
         if m:
             out.setdefault(int(m.group(1)), []).append(p)
+    return out
+
+
+def solutions_by_tutorial(u: dict) -> dict[int, list[tuple[Path, int]]]:
+    """{tutorial number: [(solutions PDF, first answer page)]}; a file without a number is skipped."""
+    out: dict[int, list[tuple[Path, int]]] = {}
+    for p, start in tutorial_solutions(u):
+        m = TUT_FILE.search(p.stem)
+        if m:
+            out.setdefault(int(m.group(1)), []).append((p, start))
     return out
 
 
@@ -88,10 +115,12 @@ def notes_pages(u: dict) -> tuple[dict[int, list[tuple]], list[Path]]:
     return out, used
 
 
-def render(u: dict, sheets: dict[int, list[Path]], pages: dict[int, list[tuple]], copies: dict[Path, Path]) -> str:
+def render(u: dict, sheets: dict[int, list[Path]], pages: dict[int, list[tuple]], copies: dict[Path, Path],
+           sols: dict[int, list[tuple[Path, int]]] | None = None) -> str:
     vrel = lambda p: p.relative_to(VAULT).as_posix()            # noqa: E731
     today = datetime.now(TZ).strftime("%Y-%m-%d")
-    nums = sorted(set(sheets) | set(pages))
+    sols = sols or {}
+    nums = sorted(set(sheets) | set(pages) | set(sols))
     lines = ["---", f"unit: {u['code']}", "type: tutorial index", "source: generated",
              "generated_by: link_tutorials.py", f"generated: {today}", "---", "", f"# {u['code']} tutorials", "",
              "Each tutorial sheet with the pages of your own handwritten working for it. Page links open the PDF at "
@@ -99,12 +128,16 @@ def render(u: dict, sheets: dict[int, list[Path]], pages: dict[int, list[tuple]]
              "(edits are moved to `_archive/` on the next run).", "",
              "Pages marked *(follows)* have no tutorial named on them: they are filed under the tutorial on the page "
              "before, so check them.", ""]
+    if sols:
+        lines += ["Solutions are the course's own (`sources.tutorial_solutions`), listed last on purpose: attempt the "
+                  "questions first, then open them at the page where the answers start.", ""]
     for n in nums:
         lines.append(f"## Tutorial {n}")
         for s in sheets.get(n, []):
             lines.append(f"- Sheet: [[{vrel(copies[s])}|{s.name}]]")
         if not sheets.get(n):
-            lines.append("- Sheet: none found in the unit's sources")
+            lines.append("- Sheet: none found in the unit's sources" + ("; the questions open the solutions file below"
+                                                                        if sols.get(n) else ""))
         mine = pages.get(n, [])
         if mine:
             trs = list(dict.fromkeys(tr for tr, *_ in mine))
@@ -116,6 +149,8 @@ def render(u: dict, sheets: dict[int, list[Path]], pages: dict[int, list[tuple]]
                 lines.append(f"    - {where} {title}{' *(follows)*' if inferred else ''}")
         else:
             lines.append("- Your working: no pages found in your handwritten notes")
+        for p, start in sols.get(n, []):
+            lines.append(f"- Solutions (after your attempt): [[{vrel(copies[p])}#page={start}|{p.name}, answers from p. {start}]]")
         lines.append("")
     return no_emoji("\n".join(lines))
 
@@ -151,17 +186,21 @@ def main() -> None:
         gi.write_text(gi.read_text("utf-8").rstrip() + f"\n{GITIGNORE_LINE}\n", "utf-8")
     manifest = Manifest("tutorials")
     for u in work_units(args.unit, args.allow_sat):
-        sheets = tutorial_sheets(u)
+        sols = solutions_by_tutorial(u)
+        sol_pdfs = [p for ps in sols.values() for p, _ in ps]
+        sheets = tutorial_sheets(u, set(sol_pdfs))
         pages, notes_pdfs = notes_pages(u)
-        if not sheets and not pages:
+        if not sheets and not pages and not sols:
             continue
         dst_dir = unit_path(u, "tutorials")
-        copies = {p: copy_in(p, dst_dir) for p in [s for ss in sheets.values() for s in ss] + notes_pdfs}
-        status = write_index(u, render(u, sheets, pages, copies), manifest)
+        copies = {p: copy_in(p, dst_dir) for p in [s for ss in sheets.values() for s in ss] + notes_pdfs + sol_pdfs}
+        pruned = prune_cache(dst_dir, set(copies.values()))
+        status = write_index(u, render(u, sheets, pages, copies, sols), manifest)
         n_pages = sum(len(v) for v in pages.values())
         inferred = sum(1 for v in pages.values() for x in v if x[4])
         n_sheets = sum(len(v) for v in sheets.values())
-        print(f"  {u['code']}: {n_sheets} tutorial sheet(s) and {len(notes_pdfs)} notes PDF(s) in vault; "
+        print(f"  {u['code']}: {n_sheets} tutorial sheet(s), {len(sol_pdfs)} solutions PDF(s) and {len(notes_pdfs)} "
+              f"notes PDF(s) in vault{f' ({len(pruned)} stale copies removed)' if pruned else ''}; "
               f"{n_pages} page(s) of your working matched ({inferred} inferred); practice/tutorials.md {status}")
 
 

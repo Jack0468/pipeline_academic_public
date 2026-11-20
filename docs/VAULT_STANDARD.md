@@ -38,8 +38,8 @@ units/<year>_<session>_<code>/
 ├── exam_room/          what goes into the exam: handbook, worked examples by type, their PDFs
 ├── reference/          facts to look up: unit_outline.md, canvas.md, exam_intel.md
 ├── sources/            transcriptions of your handwriting, converted third-party notes
-├── slides/             copies of the lecture PDFs (rebuilt by link_slides.py)
-├── tutorials/          copies of the tutorial sheets and your tutorial-notes PDFs (rebuilt by link_tutorials.py)
+├── slides/             cache: copies of the lecture sources (the Canvas mirror), rebuilt by link_slides.py
+├── tutorials/          cache: tutorial sheets, the course's solutions and your tutorial-notes PDFs (link_tutorials.py)
 ├── EXAM_<year>/        after the exam: your recall of it and the reconstruction
 └── _archive/           superseded versions and migration records; never edited
 ```

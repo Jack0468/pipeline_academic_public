@@ -57,6 +57,8 @@ _LAYOUT_1 = {
     "worked_examples": "worked_examples.md",
     "worked_examples_pdf": "{code}_worked_examples.pdf",
     "worked_examples_types": "worked_examples_types.md",
+    "cheatsheet": "cheatsheet.md",
+    "cheatsheet_pdf": "cheatsheet.pdf",
     "recall": "recall",
     "recall_checks": "recall_checks",
     "practice": "practice",
@@ -80,6 +82,8 @@ _LAYOUT_2 = {
     "worked_examples": "exam_room/worked_examples.md",
     "worked_examples_pdf": "exam_room/worked_examples.pdf",
     "worked_examples_types": "exam_room/worked_examples_types.md",
+    "cheatsheet": "exam_room/cheatsheet.md",
+    "cheatsheet_pdf": "exam_room/cheatsheet.pdf",
 }
 LAYOUTS = {1: _LAYOUT_1, 2: _LAYOUT_2}
 CURRENT_LAYOUT = 2
@@ -107,6 +111,7 @@ def note_type(rel: str) -> str | None:
              "reference/exam_intel.md": "exam intel", "exam_room/handbook.md": "handbook",
              "exam_room/worked_examples.md": "worked examples",
              "exam_room/worked_examples_types.md": "worked-example types",
+             "exam_room/cheatsheet.md": "cheat sheet",
              "practice/error_log.md": "error log", "practice/stuck_log.md": "stuck log",
              "practice/past_papers.md": "practice log", "practice/tutorials.md": "tutorial index"}
     if rel in exact:

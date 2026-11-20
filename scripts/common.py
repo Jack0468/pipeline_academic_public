@@ -160,6 +160,53 @@ def find_sources(u: dict, kind: str) -> list[Path]:
     return sort_lectures(out) if kind == "lectures" else sorted(out, key=natural_key)
 
 
+# A page that starts the answers: "Solutions", "Week 2 Solutions", "Week 4 Tutorial Solutions", "Tutorial 3 Solution:"
+SOLUTIONS_HEADING = re.compile(r"(?im)^\s*(?:week\s*\d{1,2}\s*)?(?:tutorial\s*\d{0,2}\s*)?solutions?\s*:?\s*$")
+
+
+def solutions_start(page_texts: list[str], name: str = "") -> int | None:
+    """The 1-based page where a PDF's answers start: the first page with a solutions heading, else page 1 when the
+    file name says it holds solutions. None: a plain question sheet. Course solution files often repeat the questions
+    first, so the answers start later."""
+    for i, text in enumerate(page_texts, 1):
+        if SOLUTIONS_HEADING.search(text):
+            return i
+    return 1 if re.search(r"(?i)solution", name) else None
+
+
+def tutorial_solutions(u: dict) -> list[tuple[Path, int]]:
+    """(PDF, first answer page) for each file the unit's `sources.tutorial_solutions` globs find that holds
+    solutions. The globs may be broad (e.g. every tutorial file in the Canvas mirror): question-only copies are
+    skipped. Read by link_tutorials.py (vault index), unit_inputs.py and worked_examples.py."""
+    import pymupdf
+    out = []
+    for p in find_sources(u, "tutorial_solutions"):
+        try:
+            with pymupdf.open(str(p)) as d:
+                start = solutions_start([page.get_text() for page in d], p.name)
+        except Exception as e:                  # a locked or half-synced OneDrive file: say so, keep going
+            print(f"  WARN {u['code']}: can't read {p.name} ({e.__class__.__name__}); skipped")
+            continue
+        if start:
+            out.append((p, start))
+    return out
+
+
+def prune_cache(folder: Path, keep: set[Path]) -> list[Path]:
+    """Remove PDFs from a vault cache folder (slides/, tutorials/: gitignored copies of OneDrive files, rebuilt by
+    link_slides.py / link_tutorials.py) that are no longer copies of a current source. Only *.pdf directly in it."""
+    if not folder.is_dir():
+        return []
+    keep = {p.resolve() for p in keep}
+    gone = [p for p in folder.glob("*.pdf") if p.resolve() not in keep]
+    for p in gone:
+        try:
+            p.unlink()
+        except PermissionError:                  # open in Obsidian: it goes on a later run
+            pass
+    return gone
+
+
 def file_hash(p: Path) -> str:
     h = hashlib.sha256()
     with open(p, "rb") as f:

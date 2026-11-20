@@ -47,7 +47,7 @@ def types(u) -> list[tuple[int, str, str]]:
 
 
 def context(u, inp) -> tuple[list[Path], list[str]]:
-    sols = [p for p in inp.practice if re.search(r"(?i)solution", p.name)]
+    sols = list(dict.fromkeys([p for p in inp.practice if re.search(r"(?i)solution", p.name)] + inp.tutorial_solutions))
     pdfs = inp.lectures + sols
     texts = [f"FORMULA SHEET ({s.stem}):\n\n{s.read_text('utf-8')}" for s in sorted(unit_path(u, "sources").glob("*formulas*.md"))]
     notes = []

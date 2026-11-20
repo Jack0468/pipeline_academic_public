@@ -60,9 +60,12 @@ unit's layout, so old and new layouts both work.
 | `canvas_sync.py` | Canvas record, error-log lines | `reference/canvas.md`; raw data in `state/canvas/`; mirror in OneDrive |
 | `fetch_unit_outline.py` | unit outline | `reference/unit_outline.md`; raw data in `state/outlines/` |
 | `build_handbook.py` | handbook draft and PDF | `exam_room/` |
+| `build_cheatsheet.py` | notes sheet (cheat sheet) draft and PDF, restricted exams | `exam_room/` |
 | `worked_examples.py` | worked examples and PDF | `exam_room/`; the previous set to `_archive/`; raw replies in `state/` |
 | `print_note.py` | a PDF of one note | beside the note |
-| `link_slides.py` | slide copies, page links | `slides/`, links inside `recall/` and the check folders |
+| `link_slides.py` | slide copies (a cache of the lecture sources; stale copies removed), page links | `slides/`, links inside `recall/` and the check folders |
+| `link_tutorials.py` | tutorial sheet, solution and notes copies (a cache), the tutorial index | `tutorials/`, `practice/tutorials.md` |
+| `adopt_sources.py` | recall manifest entries, relinked and relabelled notes, moved old copies | `state/manifests/`, unit notes, `_superseded/` in the unit's OneDrive folder; log in `state/logs/` |
 | `reconstruct_exam.py` | reconstructed exam | `EXAM_<year>/` |
 | `marks.py`, `plan_study.py`, `progress.py` | marks, study plan, progress page | `00_dashboard/`; `state/marks.json` |
 | `plan_study.py` | calendar files | `out/calendar/` |

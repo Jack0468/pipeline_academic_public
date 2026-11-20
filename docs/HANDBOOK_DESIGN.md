@@ -79,7 +79,24 @@ from `print.tabs` in the unit config, or are made automatically in fives.
 ## Length
 
 - **Open book:** complete, but every line must be usable in the exam.
-- **N x A4 notes sheet:** must fit 2N sides (the cheat-sheet mode, not built yet: BLUEPRINT).
+- **N x A4 notes sheet:** must fit 2N sides: the cheat-sheet mode below.
+
+## Notes sheet (cheat-sheet mode)
+
+For a restricted exam (`exam.notes_sheet: "N x A4 ..."`) only the sheet goes into the room, so the handbook becomes
+the study reference and `build_cheatsheet.py` condenses it to the page budget.
+
+- **Built from:** your `notes_sheet.md` draft (every item kept), `handbook.md` (the content source, so draft the
+  handbook first), the "Recognise it" and "Method" parts of `worked_examples.md` if there is one, your error log and
+  checks ("Trap (you)", same source rule as the handbook), and `exam.scope` plus the intel note (depth and order).
+  One AI call. The draft is then yours: a redraft goes to `cheatsheet_draft_<date>.md`.
+- **Order:** a **method chooser** first (one line per exam wording: "what the question gives or asks" → method (§n)),
+  then one compact block per problem type, numbered as in the handbook: **Use:**, formula lines (inline maths,
+  separated by " · ", each with its condition), **Steps:** on one line, **Trap (you):**, **Trap:**. No slide
+  references, no tables (they print as lines), no display maths.
+- **Print:** A4 portrait, three ruled columns, 5 mm margins, a "side N of M" footer. Font sizes 7, 6.5, 6 and 5.5 pt are
+  tried largest first and the largest that fits is kept. Over budget at 5.5 pt, the build writes nothing and fails:
+  cut lines in `cheatsheet.md`. No index, figures, tabs or running headers.
 
 ## Provenance
 
@@ -109,3 +126,4 @@ from `print.tabs` in the unit config, or are made automatically in fives.
 | 2026-11-18 | Built only on request, per subject; sat units are frozen. Design changes apply to upcoming units only (ABCD1001's sat-exam book keeps its Lookup) | owner | don't regenerate or alter a course whose exam is over |
 | 2026-11-18 | The front Lookup table was dropped; the A-Z index is the way in; a "Find it" line gives the back-matter pages; the phrasings live on as hidden index phrases | owner (decision), Claude (keeping the phrases) | the index is much more useful; dropping the phrasings outright cut the index from 325 to 262 entries |
 | 2026-11-19 | Optional "Concepts in depth" section, and a separate combined print with the worked examples as a section | owner | ABCD1002: understanding for analysis questions, and one binder instead of two documents. `handbook.pdf` stays available without the worked examples |
+| 2026-11-20 | Cheat-sheet mode (`build_cheatsheet.py`): a method chooser first, then compact blocks per problem type; three columns, the largest font from 7 to 5.5 pt that fits, a failed build when even 5.5 pt runs over | owner (method selection is the hard part), Claude (layout) | a restricted 1 x A4 exam: the deferred BLUEPRINT item. A separate script, so the textbook build is unchanged |

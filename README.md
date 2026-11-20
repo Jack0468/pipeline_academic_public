@@ -24,8 +24,8 @@ run on their own units, by changing configuration and not code. See [docs/REFACT
 1. `conda env create -f environment.yml`, then `conda activate pipeline_academic`.
 2. Copy `config.example/` to `config/` and edit it: one YAML file per unit (`config/units/`), your study hours
    (`study_plan.yaml`), your targets (`targets.yaml`) and the patterns that name you (`share.yaml`). `config/` is
-   gitignored, so your details never get committed. To keep your config in its own (private) repo instead, set
-   `PIPELINE_CONFIG` to that folder in `.env`.
+   gitignored, so your details never get committed. To keep it somewhere private and versioned instead (for example a folder in your
+   Obsidian vault, under git), set `PIPELINE_CONFIG` to that folder in `.env`.
 3. Copy `.env.example` to `.env` for the AI backend and calendar settings
    ([docs/GEMINI_SETUP.md](docs/GEMINI_SETUP.md), [docs/GCAL_SETUP.md](docs/GCAL_SETUP.md)).
 4. `python scripts/scaffold_vault.py`, then follow [docs/EXAM_SPRINT_SETUP.md](docs/EXAM_SPRINT_SETUP.md), which lists
@@ -53,6 +53,6 @@ that folder run `python peer.py where`, `python peer.py record <UNIT> <mock>` an
 
 Working, but still a folder of scripts; the move to an installable package is planned in
 [docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md). Some docs mention the owner's private planning files (BLUEPRINT,
-LOGBOOK); those live in a private repo and are not published.
+LOGBOOK); those are private and not published.
 
 Licence: MIT ([LICENSE](LICENSE)).

@@ -551,7 +551,7 @@ repo, whose history holds personal data (real marks, accounts, exam seats), is a
 | Where | Holds | Visibility |
 |---|---|---|
 | This repo | code, prompts, tests, generic docs, `config.example/` | public |
-| Your personal repo (private) | your `config/` (units, targets, study plan, `share.yaml`), logbook, planning, research | private |
+| A private folder of yours (the owner's: `_pipeline/` in the vault, under git) | your `config/` (units, targets, study plan, `share.yaml`), logbook, planning, research | private |
 | Your machine only | `.env`, `.secrets/`, `state/`, `out/`, the vault, `results.xlsx` | never in git |
 
 - **Config comes from outside the repo.** Point `PIPELINE_CONFIG` at your config folder in `.env`, or copy

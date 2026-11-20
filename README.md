@@ -36,18 +36,49 @@ Tests: `python -m pytest` (no network, no AI). Lint: `python -m ruff check scrip
 Contributing: run `python scripts/check_personal.py --install-hook` once in your clone. Every commit is then checked
 for personal data (student IDs, emails, your own patterns from `share.yaml`) and emojis.
 
-## Classmates using a shared folder
+## Where your data lives
 
-You don't need any of the above to use a shared folder someone else publishes. Add it to your OneDrive, then from
-that folder run `python peer.py where`, `python peer.py record <UNIT> <mock>` and `python peer.py results <UNIT>
-<mock>` (Python 3.10+, nothing to install). Its README says what is collected and who can see it.
+This repo is only the code. Course content and marks never come here, so you can use it, change it and share it
+without putting any course material on the internet.
 
-## Privacy by design
+```
+ this repo (public)                  your vault (private, your machine)         the group's shared folder (OneDrive)
+ code, prompts, tests, docs  ──────► notes, recall files, mocks, checks,  ────► readable by the friends you invite:
+ config.example/                     marks, handbook, your config               recall files, mocks + solutions,
+                                     (+ .env, state/ beside the code)           peer.py, class results
+                                                 ▲                                         │
+                                                 └──── class results ◄── _submissions/ ◄───┘ friends' practice marks
+```
 
-- Real assessment marks (`results.xlsx`, Canvas) never leave your machine: not this repo, not the share.
-- Practice marks reach classmates only as class aggregates, from at least 5 attempts.
-- Your own notes (OneNote exports and their transcriptions) are never exported.
-- The share export refuses to write if a file still matches a personal-data pattern.
+| Place | Who can see it | What it holds |
+|---|---|---|
+| **This repo** | anyone | the code, prompts, tests, generic docs and `config.example/`. No course content, no marks, no names. Each commit is checked for personal data |
+| **Your vault** (an Obsidian folder on your machine) | you | everything that is yours: your notes, recall files, mocks, marking, error log, your real marks and your config (for example `_pipeline/config/`, set `PIPELINE_CONFIG` to it). Put it under git for history, but keep it private. Machine secrets and caches (`.env`, `.secrets/`, `state/`) stay beside the code, gitignored |
+| **The shared folder** (OneDrive, or any synced folder you can share) | the friends you invite | the group's material: a cleaned export of your recall files, mocks with solutions and outlines, `peer.py`, and the class results. Friends write only in `_submissions/`: their practice marks and error reports |
+
+**Your own group: one person sets up a shared folder and invites their friends.** Nobody else can see it, and your
+course content never touches the internet beyond the OneDrive accounts you chose to share with.
+1. Set up this repo and your vault (above), then run `python scripts/share_vault.py --dry-run`. Then run it again
+   without `--dry-run`. It writes the export into `SHARED/usyd-course-notes` in your OneDrive, or into `SHARE_PATH`
+   from `.env`. The folder name doesn't matter: the tools find the folder by its `.peer_export` marker.
+2. In OneDrive on the web, share that folder with your friends as **Can view**, and its `_submissions` subfolder as
+   **Can edit**.
+3. Each friend adds it to their own OneDrive ("Add shortcut to My files"). They need nothing but Python 3.10+: from
+   that folder, `python peer.py record <UNIT> <mock>` sends their marks, `python peer.py results <UNIT> <mock>` shows
+   the class results next to their own, and `python peer.py report ...` flags an error. `peer.py` finds the folder
+   on each machine by itself.
+4. Re-run `share_vault.py` after new material, and to turn new submissions into class results.
+
+Several people can each run the full system on their own vault and export into the same shared folder, one unit or
+session per folder (`<unit>/<year>-<session>/`).
+
+**What never leaves your vault:**
+- your real assessment marks (`results.xlsx`, Canvas);
+- your own notes (OneNote exports and their transcriptions);
+- your error log and individual attempts.
+
+Practice marks reach the group only as class aggregates, and only from 5 attempts up. The export refuses to write if
+a file still matches a personal-data pattern. Practice material only: never real exam questions or assessed work.
 
 ## Status
 

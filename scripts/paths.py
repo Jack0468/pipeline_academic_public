@@ -8,6 +8,7 @@ Machine-specific locations come from the environment (.env), so another student 
     VAULT_PATH, ONEDRIVE_COURSEWORK    their vault and coursework folder
     PIPELINE_STATE, PIPELINE_OUT       caches and exports (default: state/ and out/ in the repo)
     PIPELINE_CONFIG                    unit configs (default: config/); tests point this at a copy
+    PIPELINE_PRIVATE                   private pages about you, never exported (default: <vault>/_pipeline/)
 """
 from __future__ import annotations
 
@@ -34,6 +35,10 @@ def _default_coursework() -> Path:
 
 ONEDRIVE_COURSEWORK = Path(os.environ.get("ONEDRIVE_COURSEWORK") or _default_coursework())
 VAULT = Path(os.environ.get("VAULT_PATH", str(REPO.parent / "academic_vault")))
+
+# Private notes about you (never exported, never in this repo): the vault's _pipeline/ by default.
+PRIVATE_DIR = Path(os.environ.get("PIPELINE_PRIVATE", str(VAULT / "_pipeline")))
+COURSE_INVENTORY = PRIVATE_DIR / "course_inventory.md"           # course_inventory.py; data in STATE/course_inventory.json
 
 CALENDAR_DIR = OUT / "calendar"
 STUDY_ICS = CALENDAR_DIR / "study_plan.ics"
@@ -65,6 +70,8 @@ _LAYOUT_1 = {
     "practice_checks": "practice_checks",
     "error_log": "practice/error_log.md",
     "stuck_log": "practice/stuck_log.md",
+    "tutorial_attempts": "practice/tutorial_attempts.md",
+    "lecture_examples": "practice/lecture_examples.md",
     "past_papers": "practice/past_papers.md",
     "sources": "sources",
     "slides": "slides",
@@ -113,7 +120,8 @@ def note_type(rel: str) -> str | None:
              "exam_room/worked_examples_types.md": "worked-example types",
              "exam_room/cheatsheet.md": "cheat sheet",
              "practice/error_log.md": "error log", "practice/stuck_log.md": "stuck log",
-             "practice/past_papers.md": "practice log", "practice/tutorials.md": "tutorial index"}
+             "practice/past_papers.md": "practice log", "practice/tutorials.md": "tutorial index",
+             "practice/tutorial_attempts.md": "tutorial attempts", "practice/lecture_examples.md": "lecture examples"}
     if rel in exact:
         return exact[rel]
     folder, _, name = rel.partition("/")

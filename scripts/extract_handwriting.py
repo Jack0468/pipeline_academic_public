@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
 import sys
 import threading
@@ -24,6 +25,7 @@ from pypdf import PdfReader, PdfWriter
 
 from common import ALLOW_SAT_HELP, work_units
 from common import PROMPTS, STATE, TZ, Manifest, file_hash, file_uri, fill, find_sources, load_units, unit_path
+from common import transcription_content, transcription_for
 import gemini
 
 _lock = threading.Lock()
@@ -88,17 +90,20 @@ def main() -> None:
                     manifest.mark(key, src_hash)
                 return f"  ok p{a}-{b}"
 
+            new_parts = False
             with ThreadPoolExecutor(max_workers=args.workers) as ex:
                 for f in [ex.submit(run, c) for c in chunks]:
                     try:
-                        print(f.result(), flush=True)
+                        res = f.result()
+                        new_parts |= res.startswith("  ok")
+                        print(res, flush=True)
                     except Exception as e:
                         print(f"  FAIL {str(e)[:200]}", flush=True)
 
             parts = sorted(part_dir.glob("p*.md"))
             body = "\n\n".join(p.read_text("utf-8").strip() for p in parts)
             confused = re.findall(r"^> \[!confused\]\s*\n((?:>.*\n?)+)", body, re.M)
-            out = unit_path(u, "sources") / f"handwritten_{pdf.stem}.md"
+            out = transcription_for(u, pdf)          # a transcription you renamed keeps its name
             out.parent.mkdir(parents=True, exist_ok=True)
             head = ["---", f"unit: {u['code']}", "type: transcription", "source: handwritten", "rank: 1",
                     f"transcribed_by: {gemini.model_name()}", f"generated: {datetime.now(TZ):%Y-%m-%d}",
@@ -109,7 +114,24 @@ def main() -> None:
                     f"## Your open questions ({len(confused)})",
                     "Things you marked as unclear while learning. Resolve each one before the exam.", ""]
             head += [f"- [ ] {' '.join(l.lstrip('> ').strip() for l in c.strip().splitlines())}" for c in confused]
-            out.write_text("\n".join(head) + "\n\n## Page by page\n\n" + body + "\n", "utf-8")
+            text = "\n".join(head) + "\n\n## Page by page\n\n" + body + "\n"
+            okey = f"{u['code']}:written:{pdf.name}"
+            sha = lambda t: hashlib.sha256(transcription_content(t).encode()).hexdigest()[:16]     # noqa: E731
+            if out.exists():                         # your corrections in a transcription are never overwritten
+                cur = out.read_text("utf-8")
+                edited = (transcription_content(cur) != transcription_content(text)
+                          and manifest.data.get(okey, {}).get("hash") != sha(cur))
+                if edited and not new_parts:
+                    print(f"[kept] {out.name}: edited by hand and the scan is unchanged")
+                    continue
+                if edited:
+                    arch = unit_path(u, "archive")
+                    arch.mkdir(parents=True, exist_ok=True)
+                    keep = arch / f"{out.stem}_edited_{datetime.now(TZ):%Y-%m-%d_%H%M}.md"
+                    out.replace(keep)
+                    print(f"[archived] your edited copy as _archive/{keep.name}: the scan changed, re-transcribed")
+            out.write_text(text, "utf-8")
+            manifest.mark(okey, sha(text))
             print(f"[written] {out}  ({len(parts)}/{len(chunks)} chunks, {len(confused)} open questions)")
 
 

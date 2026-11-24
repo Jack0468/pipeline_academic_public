@@ -49,6 +49,46 @@ def math_problems(md: str) -> list[str]:
     return out
 
 
+PAGE_REF = re.compile(r"#page=(\d+)|\bpp?\.\s?(\d+)(?:\s?[-–]\s?(\d+))?")
+
+
+def referenced_pages(md: str) -> set[int]:
+    """Slide pages a note cites: "(p. 12)", "pp. 3-7", "[[...pdf#page=12|p. 12]]"."""
+    out: set[int] = set()
+    for link, a, b in PAGE_REF.findall(md):
+        if link:
+            out.add(int(link))
+        elif a:
+            lo, hi = int(a), int(b or a)
+            out |= set(range(lo, min(hi, lo + 30) + 1))
+    return out
+
+
+def slide_subset(pdf: Path, pages: set[int], pad: int = 1) -> Path:
+    """Only the slide pages an AI call needs (each cited page and `pad` either side), as a small cached PDF, so a
+    marking call doesn't send the whole deck again. The whole deck when nothing is cited or the subset isn't smaller.
+    Cached in state/slide_subsets/ by the deck's hash and the page set."""
+    import hashlib
+
+    import pymupdf
+    from paths import STATE
+    with pymupdf.open(str(pdf)) as d:
+        n = d.page_count
+        keep = sorted({q for p in pages for q in range(p - pad, p + pad + 1) if 1 <= q <= n})
+        if not keep or len(keep) >= n:
+            return pdf
+        key = hashlib.sha256(pdf.read_bytes()).hexdigest()[:12] + "_" + hashlib.sha256(str(keep).encode()).hexdigest()[:8]
+        out = STATE / "slide_subsets" / f"{pdf.stem}_{key}.pdf"
+        if not out.exists():
+            out.parent.mkdir(parents=True, exist_ok=True)
+            sub = pymupdf.open()
+            for q in keep:
+                sub.insert_pdf(d, from_page=q - 1, to_page=q - 1)
+            sub.save(str(out), garbage=4, deflate=True)
+            sub.close()
+    return out if out.stat().st_size < 0.8 * pdf.stat().st_size else pdf   # shared fonts can make a subset no smaller
+
+
 def publish(built: Path, dest: Path) -> Path:
     """Put a finished PDF in place in one step."""
     dest.parent.mkdir(parents=True, exist_ok=True)

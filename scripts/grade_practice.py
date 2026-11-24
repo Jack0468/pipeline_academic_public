@@ -27,6 +27,7 @@ from datetime import datetime
 from pathlib import Path
 
 import gemini
+import pdf_tools
 import progress
 from common import ALLOW_SAT_HELP, work_units
 from common import (PROMPTS, STATE, TZ, VAULT, Manifest, file_hash, file_uri, fill, find_sources, lecture_labels,
@@ -89,7 +90,12 @@ def reference(u, att: Path, by_label: dict[str, Path]):
         return None
     text = rf.read_text("utf-8")
     sec = re.search(r"^## Exam-style problems.*?(?=^## (?!Exam-style)|\Z)", text, re.S | re.M)
-    return f"{label} exam-style problems", (sec.group(0) if sec else text), [by_label[label]], "practice"
+    ref = sec.group(0) if sec else text
+    slides = pdf_tools.slide_subset(by_label[label], pdf_tools.referenced_pages(ref))   # only the method pages cited
+    if slides != by_label[label]:
+        ref += ("\n\nNOTE: the slides attached are only the pages these problems cite (with a page either side). Cite "
+                "ORIGINAL page numbers as above.")
+    return f"{label} exam-style problems", ref, [slides], "practice"
 
 
 def append_log(u, stem: str, title: str, d: dict, when: str) -> int:

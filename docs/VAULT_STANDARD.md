@@ -32,7 +32,9 @@ units/<year>_<session>_<code>/
 │                         mock_exam_<n>.md + mock_exam_<n>_solutions.md
 │                         worked_examples_<topic>.md and .pdf (attempt-first sheets)
 │                         error_log.md, stuck_log.md, past_papers.md
-│                         tutorials.md (each tutorial sheet + your working for it; link_tutorials.py)
+│                         tutorials.md (each tutorial sheet + your working for it, attempted vs not; link_tutorials.py)
+│                         tutorial_attempts.md (yours: a checklist per tutorial question; the pipeline ticks what it finds)
+│                         lecture_examples.md (every example and exercise on the slides, attempt-first; lecture_examples.py)
 ├── recall_checks/      AI marking of your recall attempts
 ├── practice_checks/    AI marking of your practice attempts
 ├── exam_room/          what goes into the exam: handbook, worked examples by type, their PDFs
@@ -48,7 +50,7 @@ Only the three notes shown belong in the unit folder itself. Folders are created
 
 | Kind | Where | Who changes it | If it is lost |
 |---|---|---|---|
-| **Yours** | `_unit.md`, `notes_sheet.md`, `practice/error_log.md`, `stuck_log.md`, `past_papers.md` | You. Scripts only append marked lines | Gone: protect these |
+| **Yours** | `_unit.md`, `notes_sheet.md`, `practice/error_log.md`, `stuck_log.md`, `past_papers.md`, `practice/tutorial_attempts.md` | You. Scripts only append marked lines | Gone: protect these |
 | **Shared** | `exam_plan.md`, `exam_room/handbook.md` | You and Claude, with each change recorded. No script overwrites them | Gone: protect these |
 | **Generated** | `recall/`, `recall_checks/`, `practice_checks/`, `reference/`, `sources/`, mocks, `exam_room/worked_examples.md`, every PDF | The pipeline. Edit by hand only if the front matter records it | Rebuilt, at the cost of AI calls where one was used |
 | **Source** | OneDrive coursework, OneNote, Canvas | Never by the pipeline | Outside this system |

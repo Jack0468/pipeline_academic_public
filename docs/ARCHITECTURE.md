@@ -52,6 +52,7 @@ unit's layout, so old and new layouts both work.
 |---|---|---|
 | `scaffold_vault.py` | hub, notes sheet, logs, plan starter, dashboard pages | unit folder, `practice/`, `00_dashboard/` |
 | `gen_recall.py` | recall notes | `recall/` |
+| `lecture_examples.py` | the slides' own examples and exercises (questions only, answer pages) | `practice/lecture_examples.md`; raw replies in `state/lecture_examples/` |
 | `extract_handwriting.py` | transcriptions | `sources/`; chunks in `state/` |
 | `convert_reference.py` | converted third-party notes | `sources/` |
 | `gen_practice_exam.py`, `mock_writer.py` | mock papers and solutions | `practice/`; drafts and logs in `state/` |
@@ -59,12 +60,13 @@ unit's layout, so old and new layouts both work.
 | `ingest_intel.py` | exam intel | `reference/exam_intel.md` |
 | `canvas_sync.py` | Canvas record, error-log lines | `reference/canvas.md`; raw data in `state/canvas/`; mirror in OneDrive |
 | `fetch_unit_outline.py` | unit outline | `reference/unit_outline.md`; raw data in `state/outlines/` |
+| `course_inventory.py` | every unit taken, cross-checked across the results sheet, Canvas, OneDrive and the pipeline | `PIPELINE_PRIVATE/course_inventory.md` (default the vault's `_pipeline/`, never exported); data in `state/course_inventory.json` |
 | `build_handbook.py` | handbook draft and PDF | `exam_room/` |
 | `build_cheatsheet.py` | notes sheet (cheat sheet) draft and PDF, restricted exams | `exam_room/` |
 | `worked_examples.py` | worked examples and PDF | `exam_room/`; the previous set to `_archive/`; raw replies in `state/` |
 | `print_note.py` | a PDF of one note | beside the note |
 | `link_slides.py` | slide copies (a cache of the lecture sources; stale copies removed), page links | `slides/`, links inside `recall/` and the check folders |
-| `link_tutorials.py` | tutorial sheet, solution and notes copies (a cache), the tutorial index | `tutorials/`, `practice/tutorials.md` |
+| `link_tutorials.py`, `tutorial_attempts.py` | tutorial sheet, solution and notes copies (a cache), the tutorial index with attempted vs not, the attempts checklist (yours; only lines added and ticks set on first evidence) | `tutorials/`, `practice/tutorials.md` |
 | `adopt_sources.py` | recall manifest entries, relinked and relabelled notes, moved old copies | `state/manifests/`, unit notes, `_superseded/` in the unit's OneDrive folder; log in `state/logs/` |
 | `reconstruct_exam.py` | reconstructed exam | `EXAM_<year>/` |
 | `marks.py`, `plan_study.py`, `progress.py` | marks, study plan, progress page | `00_dashboard/`; `state/marks.json` |

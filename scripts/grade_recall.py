@@ -26,8 +26,9 @@ from datetime import datetime
 from pathlib import Path
 
 import gemini
+import pdf_tools
 import progress
-from common import ALLOW_SAT_HELP, work_units
+from common import ALLOW_SAT_HELP, md_section, work_units
 from common import (CONFIG, PROMPTS, STATE, TZ, VAULT, Manifest, file_hash, file_uri, fill, find_sources,
                     lecture_labels, load_units, load_yaml, unit_path)
 
@@ -158,7 +159,14 @@ def main() -> None:
             prompt = fill(template, unit_code=u["code"], unit_name=u["name"], label=label)
             texts = [f"RECALL FILE for {label}:\n\n{recall_file.read_text('utf-8')}"] if recall_file.exists() else []
             try:
-                body = gemini.generate([att, by_label[label]], prompt, texts=texts, temperature=0.1)
+                cited = pdf_tools.referenced_pages(md_section(recall_file.read_text("utf-8"), "Free-recall prompts")) \
+                    if recall_file.exists() else set()
+                slides = pdf_tools.slide_subset(by_label[label], cited)    # only the pages the prompts cite
+                if slides != by_label[label]:
+                    texts.append(f"NOTE: the slides attached are only the pages the prompts cite (with a page either "
+                                 f"side), in order: original pages {sorted(cited)}. Cite ORIGINAL page numbers as the "
+                                 "recall file does.")
+                body = gemini.generate([att, slides], prompt, texts=texts, temperature=0.1)
             except gemini.DailyQuotaExhausted as e:
                 print(f"STOPPED: {e}")
                 return

@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from common import unit_path, STATE, expand, file_hash, find_sources, lecture_labels, load_units, scope_files, unit_dir, vault_unit_dir
-from common import tutorial_solutions
+from common import doc_relation, name_key, transcription_for, tutorial_solutions
 
 
 
@@ -107,9 +107,8 @@ def problems(u: dict, inp: Inputs) -> tuple[list[str], list[str]]:
                 continue
             if not glob.glob(str(unit_dir(u) / expand(pat)), recursive=True):
                 warn.append(f"sources.{kind}: '{pat}' matches no file")
-    done = {p.stem.removeprefix("handwritten_") for p in inp.transcriptions}
     for p in inp.handwritten_pdfs:
-        if p.stem not in done:
+        if not transcription_for(u, p).exists():                  # by its `original:` line, so a renamed one counts
             warn.append(f"handwritten {rel(u, p)} has no transcription yet: run scripts/extract_handwriting.py --unit {u['code']}")
     note = inp.notes.get("intel")
     if inp.intel_items and (not note or max(p.stat().st_mtime for p in inp.intel_items) > note.stat().st_mtime):
@@ -159,7 +158,32 @@ def report(u: dict, inp: Inputs | None = None, files: bool = True) -> str:
     if left:
         L.append(f"  not read by the pipeline ({len(left)} PDF(s) outside every source glob; fine if intended):")
         L += [f"      {rel(u, p)}" for p in left]
+    same = same_name(inp.scope + inp.lectures + inp.practice + inp.tutorial_solutions + inp.own_work
+                     + inp.reference + left)
+    if same:
+        L.append(f"  same name, checked for what really differs ({len(same)} group(s); never assume they are the same "
+                 "document):")
+        for files, rels in same:
+            L.append("      " + " | ".join(rel(u, p) for p in files))
+            L += [f"        -> {r}" for r in rels]
     return "\n".join(L)
+
+
+def same_name(paths: list[Path]) -> list[tuple[list[Path], list[str]]]:
+    """Groups of files that share a name (common.name_key: Canvas's -N suffixes ignored) but not their bytes, each
+    with what really differs: a question sheet and its solutions, another version, or a different document."""
+    groups: dict[str, list[Path]] = {}
+    for p in dict.fromkeys(x for x in paths if x.suffix.lower() == ".pdf"):
+        groups.setdefault(name_key(p), []).append(p)
+    out = []
+    for files in groups.values():
+        if len(files) < 2:
+            continue
+        first = files[0]
+        rels = [f"{p.name} vs {first.name}: {doc_relation(first, p)}" for p in files[1:]]
+        if any(not r.endswith("identical copies") for r in rels):
+            out.append((files, rels))
+    return out
 
 
 def main() -> None:

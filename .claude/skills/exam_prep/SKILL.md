@@ -48,17 +48,22 @@ Other students' files (e.g. a lab partner's folder) are never sources.
    there is **no CRITICAL** line, and look at every WARN and every "not read" PDF. The usual causes:
    - lecture files moved (fewer lecture PDFs than recall files);
    - two copies of one lecture (L2a/L2b): the Canvas mirror is the one source;
+   - files with the same name (the report's "same name" section): never assume they are one document. Canvas often
+     gives a question sheet and its solutions one name; the report says what really differs (sheet vs solutions,
+     another version, a different document). Check before moving, superseding or choosing one;
    - a unit still reading its own copies: point `sources.lectures`, `sources.practice` (tutorials) and
      `sources.tutorial_solutions` at `canvas/<module>/`, then `adopt_sources.py --unit X` (dry run). Ask the user
      whether to keep or regenerate recall files whose Canvas version differs (regenerating changes practice
      problems they may be using). Keeping: `--apply` (with `--map` for merged lectures), then `--supersede` the old
      copies, then `link_slides.py` and `link_tutorials.py`. A CONFLICT means the old copies were numbered
-     differently: stop and show the user, never force it;
+     differently: show the user. Matching Canvas (`--by-content`, renumbers the recall files by their slides)
+     or regenerating is their call;
    - an exam guide or sample paper sitting outside every glob: official ones go in `sources.scope`; practice
      papers that aren't official (check the paper's own words) go in `sources.practice`.
 3. Official exam facts (format, total marks, scope) go in `exam.format`, `exam.total_marks` and `exam.scope`,
    with the source in a comment. `total_marks` sets the pace in every time allocation.
-4. Recall files current: `gen_recall.py --unit X`, `extract_handwriting.py --unit X`, `pace_recall.py`, `link_slides.py`
+4. Recall files current: `gen_recall.py --unit X`, `lecture_examples.py --unit X` (the slides' own examples and
+   exercises, attempt-first), `extract_handwriting.py --unit X`, `pace_recall.py`, `link_slides.py`
    (or `nightly_ai.ps1`).
 
 ## 2. Word on the street

@@ -174,6 +174,51 @@ def solutions_start(page_texts: list[str], name: str = "") -> int | None:
     return 1 if re.search(r"(?i)solution", name) else None
 
 
+def doc_profile(p: Path) -> tuple[str, str]:
+    """(kind, text) of a PDF: kind "solutions" (a solutions heading, or "solution" in the name) or "sheet"; text is the
+    question part (the pages before the answers start), "" for a scan with no text layer."""
+    import pymupdf
+    try:
+        with pymupdf.open(str(p)) as d:
+            pages = [pg.get_text() for pg in d]
+    except Exception:
+        return "unreadable", ""
+    start = solutions_start(pages, p.name)
+    return ("solutions" if start else "sheet"), "".join(pages[: start - 1] if start else pages).strip()
+
+
+def doc_similarity(a: str, b: str) -> float:
+    import difflib
+    return difflib.SequenceMatcher(None, a[:12000], b[:12000]).ratio() if a and b else 0.0
+
+
+def name_key(p: Path) -> str:
+    """Two files share a name when this matches: case and separators ignored, and Canvas's "-N" repeat suffixes
+    ("Tutorial_6-4", "Lecture_9-7-1") dropped. The real number before them stays: Tutorial_6 and Tutorial_7 differ."""
+    stem = re.sub(r"(?:-\d{1,2})+$", "", p.stem)
+    return re.sub(r"[^a-z0-9]+", "_", stem.lower()).strip("_")
+
+
+def doc_relation(a: Path, b: Path) -> str:
+    """What really differs between two files that share a name (the rule: never assume they are the same thing)."""
+    if file_hash(a) == file_hash(b):
+        return "identical copies"
+    (ka, ta), (kb, tb) = doc_profile(a), doc_profile(b)
+    if ka != kb and (not ta or not tb) and (ta or tb):      # a solutions file that starts with the answers
+        sheet, sol = (a, b) if ka == "sheet" else (b, a)
+        return f"question sheet ({sheet.name}) and its solutions ({sol.name}, which starts with the answers)"
+    if not ta or not tb:
+        return "cannot compare: no text layer (a scan or your own notes?)"
+    r = doc_similarity(ta, tb)
+    if ka != kb:
+        sheet, sol = (a, b) if ka == "sheet" else (b, a)
+        return (f"question sheet ({sheet.name}) and its solutions ({sol.name}), {r:.0%} the same questions"
+                if r >= 0.8 else f"a sheet and a solutions file with different questions ({r:.0%}): check them")
+    if r >= 0.9:
+        return f"the same {ka}, another version ({r:.0%} the same text)"
+    return f"different documents ({r:.0%} the same text): check which you need"
+
+
 def tutorial_solutions(u: dict) -> list[tuple[Path, int]]:
     """(PDF, first answer page) for each file the unit's `sources.tutorial_solutions` globs find that holds
     solutions. The globs may be broad (e.g. every tutorial file in the Canvas mirror): question-only copies are
@@ -190,6 +235,29 @@ def tutorial_solutions(u: dict) -> list[tuple[Path, int]]:
         if start:
             out.append((p, start))
     return out
+
+
+ORIGINAL_LINE = re.compile(r'(?m)^original:\s*"?file:///([^"\n]+)"?')
+
+
+def transcription_for(u: dict, pdf: Path) -> Path:
+    """The transcription of a handwritten PDF: the sources/handwritten_*.md whose `original:` names this PDF, so a
+    transcription you renamed stays the one (no second copy appears), else handwritten_<stem>.md."""
+    from urllib.parse import unquote
+    folder = unit_path(u, "sources")
+    for p in sorted(folder.glob("handwritten_*.md")):
+        with open(p, encoding="utf-8") as f:
+            m = ORIGINAL_LINE.search(f.read(4000))
+        if m and Path(unquote(m.group(1))).name == pdf.name:
+            return p
+    return folder / f"handwritten_{pdf.stem}.md"
+
+
+def transcription_content(text: str) -> str:
+    """What you can change in a transcription: the open questions (ticks) and the pages (corrections). The header
+    above it is the pipeline's (dates, model, source path, template), so a template upgrade isn't taken for an edit."""
+    i = text.find("## Your open questions")
+    return text[i:] if i >= 0 else text
 
 
 def prune_cache(folder: Path, keep: set[Path]) -> list[Path]:

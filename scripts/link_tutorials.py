@@ -31,6 +31,7 @@ import urllib.parse
 from datetime import datetime
 from pathlib import Path
 
+import tutorial_attempts as ta
 from common import (
     ALLOW_SAT_HELP,
     TZ,
@@ -39,6 +40,7 @@ from common import (
     find_sources,
     no_emoji,
     prune_cache,
+    transcription_for,
     tutorial_solutions,
     unit_path,
     work_units,
@@ -115,12 +117,44 @@ def notes_pages(u: dict) -> tuple[dict[int, list[tuple]], list[Path]]:
     return out, used
 
 
+def tutorial_questions(sheets: dict[int, list[Path]], sols: dict[int, list[tuple[Path, int]]]) -> dict[int, dict]:
+    """{tutorial: {question number: text}} from the sheet, else from the question pages of its solutions file."""
+    import pymupdf
+    out = {}
+    for n in sorted(set(sheets) | set(sols)):
+        if sheets.get(n):
+            src, last = sheets[n][0], None
+        else:
+            src, start = sols[n][0]
+            last = start - 1 if start > 1 else None
+        try:
+            with pymupdf.open(str(src)) as d:
+                text = "".join(pg.get_text() for i, pg in enumerate(d) if last is None or i < last)
+        except Exception:
+            continue
+        qs = ta.sheet_questions(text)
+        if qs:
+            out[n] = qs
+    return out
+
+
+def tutorial_scans(u: dict) -> dict[int, list[Path]]:
+    """{tutorial: [scans of your working with no transcription yet]} from `sources.tutorial_work`."""
+    out: dict[int, list[Path]] = {}
+    for p in find_sources(u, "tutorial_work"):
+        m = TUT_FILE.search(p.stem)
+        if m and not transcription_for(u, p).exists():
+            out.setdefault(int(m.group(1)), []).append(p)
+    return out
+
+
 def render(u: dict, sheets: dict[int, list[Path]], pages: dict[int, list[tuple]], copies: dict[Path, Path],
-           sols: dict[int, list[tuple[Path, int]]] | None = None) -> str:
+           sols: dict[int, list[tuple[Path, int]]] | None = None, qmap: dict | None = None,
+           ticks: dict | None = None, ev: dict | None = None) -> str:
     vrel = lambda p: p.relative_to(VAULT).as_posix()            # noqa: E731
     today = datetime.now(TZ).strftime("%Y-%m-%d")
-    sols = sols or {}
-    nums = sorted(set(sheets) | set(pages) | set(sols))
+    sols, qmap, ticks, ev = sols or {}, qmap or {}, ticks or {}, ev or {}
+    nums = sorted(set(sheets) | set(pages) | set(sols) | {t for t, _ in ticks})
     lines = ["---", f"unit: {u['code']}", "type: tutorial index", "source: generated",
              "generated_by: link_tutorials.py", f"generated: {today}", "---", "", f"# {u['code']} tutorials", "",
              "Each tutorial sheet with the pages of your own handwritten working for it. Page links open the PDF at "
@@ -131,8 +165,18 @@ def render(u: dict, sheets: dict[int, list[Path]], pages: dict[int, list[tuple]]
     if sols:
         lines += ["Solutions are the course's own (`sources.tutorial_solutions`), listed last on purpose: attempt the "
                   "questions first, then open them at the page where the answers start.", ""]
+    if ticks:
+        att = unit_path(u, "tutorial_attempts")
+        lines += ["## Attempted vs not attempted", "",
+                  f"From your checklist [[{vrel(att).removesuffix('.md')}|tutorial attempts]] (yours: tick or untick "
+                  "there). Each page below says which question it was matched to.", ""] + ta.summary(ticks, ev) + [""]
     for n in nums:
         lines.append(f"## Tutorial {n}")
+        qs = sorted(q for t, q in ticks if t == n)
+        if qs:
+            yes = [f"Q{q}" for q in qs if ticks[(n, q)]]
+            no = [f"Q{q}" for q in qs if not ticks[(n, q)]]
+            lines.append(f"- Attempted: {', '.join(yes) or 'none'} · not yet: {', '.join(no) or 'none'}")
         for s in sheets.get(n, []):
             lines.append(f"- Sheet: [[{vrel(copies[s])}|{s.name}]]")
         if not sheets.get(n):
@@ -144,13 +188,18 @@ def render(u: dict, sheets: dict[int, list[Path]], pages: dict[int, list[tuple]]
             links = ", ".join(f"[[{vrel(tr).removesuffix('.md')}|{tr.stem.removeprefix('handwritten_')}]]"
                               for tr in trs)
             lines.append(f"- Your working ({len(mine)} page(s); typed version: {links}):")
-            for _tr, pdf, page, title, inferred in mine:
+            for tr, pdf, page, title, inferred in mine:
                 where = f"[[{vrel(copies[pdf])}#page={page}|p. {page}]]" if pdf in copies else f"p. {page}"
-                lines.append(f"    - {where} {title}{' *(follows)*' if inferred else ''}")
+                t, q, how = qmap.get((tr.name, page), (n, [], ""))
+                to = f" → {', '.join(f'Q{x}' for x in q)}" if q else ""
+                note = f" *({how})*" if how.startswith(("matches", "continues the Tutorial")) else \
+                    (" *(follows)*" if inferred else "")
+                lines.append(f"    - {where} {title}{to}{note}")
         else:
             lines.append("- Your working: no pages found in your handwritten notes")
         for p, start in sols.get(n, []):
-            lines.append(f"- Solutions (after your attempt): [[{vrel(copies[p])}#page={start}|{p.name}, answers from p. {start}]]")
+            link = f"[[{vrel(copies[p])}#page={start}|{p.name}, answers from p. {start}]]"
+            lines.append(f"- Solutions (after your attempt): {link}")
         lines.append("")
     return no_emoji("\n".join(lines))
 
@@ -193,15 +242,25 @@ def main() -> None:
         if not sheets and not pages and not sols:
             continue
         dst_dir = unit_path(u, "tutorials")
-        copies = {p: copy_in(p, dst_dir) for p in [s for ss in sheets.values() for s in ss] + notes_pdfs + sol_pdfs}
+        scans = tutorial_scans(u)
+        scan_pdfs = [p for ps in scans.values() for p in ps]
+        copies = {p: copy_in(p, dst_dir)
+                  for p in [s for ss in sheets.values() for s in ss] + notes_pdfs + sol_pdfs + scan_pdfs}
         pruned = prune_cache(dst_dir, set(copies.values()))
-        status = write_index(u, render(u, sheets, pages, copies, sols), manifest)
+        questions = tutorial_questions(sheets, sols)
+        pages, qmap = ta.assign(pages, questions)
+        ev = ta.evidence(u, questions, pages, qmap, copies, scans)
+        ticks, attempts = ta.update_checklist(u, ev)
+        status = write_index(u, render(u, sheets, pages, copies, sols, qmap, ticks, ev), manifest)
         n_pages = sum(len(v) for v in pages.values())
         inferred = sum(1 for v in pages.values() for x in v if x[4])
         n_sheets = sum(len(v) for v in sheets.values())
         print(f"  {u['code']}: {n_sheets} tutorial sheet(s), {len(sol_pdfs)} solutions PDF(s) and {len(notes_pdfs)} "
               f"notes PDF(s) in vault{f' ({len(pruned)} stale copies removed)' if pruned else ''}; "
               f"{n_pages} page(s) of your working matched ({inferred} inferred); practice/tutorials.md {status}")
+        done = sum(ticks.values())
+        print(f"  {u['code']}: {done} of {len(ticks)} tutorial questions ticked as attempted; "
+              f"practice/tutorial_attempts.md {attempts}")
 
 
 if __name__ == "__main__":

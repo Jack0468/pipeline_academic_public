@@ -25,8 +25,14 @@ Per unit:
 It also compares Canvas scores with the marks the unit config still *assumes*, so you know what
 to update in results.xlsx (which scripts never write to).
 
+Past courses (--past): every course in state/course_inventory.json (scripts/course_inventory.py) whose Canvas access
+is still open and that has no unit config gets the same module-files mirror, in its OneDrive unit folder (the `.old`
+one first; a new `.old/<YEAR>_<SESSION>_<CODE>` if it has none). Nothing else is fetched or written for them.
+`--dry-run` lists file counts and sizes first.
+
 Usage:
     python scripts/canvas_sync.py [--unit ABCD1004] [--no-files] [--videos]
+    python scripts/canvas_sync.py --past [--dry-run] [--unit CODE ...] [--videos]
 """
 from __future__ import annotations
 
@@ -59,10 +65,25 @@ def token() -> str:
     return t
 
 
+class _NoAuthOffSite(urllib.request.HTTPRedirectHandler):
+    """Drop the Canvas token when a redirect leaves the Canvas host. Some file downloads redirect to a signed S3
+    URL, which answers 400 ("Only one auth mechanism allowed") if the Authorization header comes along, and the
+    token has no business going to another host anyway."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is not None and urllib.parse.urlsplit(newurl).netloc != urllib.parse.urlsplit(req.full_url).netloc:
+            new.remove_header("Authorization")
+        return new
+
+
+_OPENER = urllib.request.build_opener(_NoAuthOffSite)
+
+
 def request(url: str):
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token()}",
                                                "User-Agent": "pipeline_academic"})
-    return urllib.request.urlopen(req, timeout=60)
+    return _OPENER.open(req, timeout=60)
 
 
 def get(path: str, **params) -> list | dict:
@@ -374,6 +395,61 @@ def compare_assumptions(u: dict, d: dict) -> list[str]:
     return out
 
 
+def past_courses(inventory: dict, coursework: Path, only: list[str] | None = None) -> list[dict]:
+    """Past units to mirror, from course_inventory.py's data: Canvas access still open, no unit config (configured
+    units go through the normal sync, so sat units stay frozen), year and session known. Each becomes a minimal unit
+    whose OneDrive folder is its existing one (an `.old` folder first), or a new `.old/<YEAR>_<SESSION>_<CODE>`."""
+    out = []
+    for u in inventory.get("units", []):
+        open_ids = [c["canvas_id"] for c in u.get("canvas", []) if not c.get("restricted")]
+        if not open_ids or "config" in u.get("pipeline", []) or "?" in u["id"]:
+            continue
+        if only and u["code"] not in only and u["id"] not in only:
+            continue
+        folders = sorted(u.get("onedrive", []), key=lambda d: d["where"] != "old")
+        if folders:
+            rel = Path(folders[0]["folder"]).relative_to(coursework).as_posix()
+        else:
+            year, session, _ = u["id"].split("_")
+            rel = f".old/{year}_{session.upper()}_{u['code']}"
+        out.append({"id": u["id"], "code": u["code"], "onedrive_folder": rel, "sources": {},
+                    "canvas_id": open_ids[0], "new_folder": not folders})
+    return out
+
+
+def sync_past(only: list[str] | None, dry_run: bool, videos: bool) -> None:
+    """Mirror the module files of past courses whose Canvas access still exists (course_inventory.py first)."""
+    from common import ONEDRIVE_COURSEWORK
+    inv_path = STATE / "course_inventory.json"
+    if not inv_path.exists():
+        sys.exit("No course inventory yet: run python scripts/course_inventory.py first")
+    todo = past_courses(json.loads(inv_path.read_text("utf-8")), ONEDRIVE_COURSEWORK, only)
+    print(f"{len(todo)} past course(s) with open Canvas access" + (" (dry run: nothing downloaded)" if dry_run else ""))
+    total = 0
+    for u in todo:
+        try:
+            if dry_run:
+                files, refused = course_files(u["canvas_id"])
+                skip = SKIP_CLASSES - ({"video", "audio"} if videos else set())
+                keep = [f for _, f in files if media_class(f) not in skip and f.get("url")
+                        and not f.get("locked_for_user")]
+                size = sum(f.get("size") or 0 for f in keep)
+                total += size
+                print(f"  {u['id']}: {len(keep)} file(s), {size / 1e6:.0f} MB"
+                      + (" -> new folder" if u["new_folder"] else "")
+                      + (f", {refused} link(s) refused" if refused else ""))
+                continue
+            d = sync_module_files(u, u["canvas_id"], videos)
+            c = d["counts"]
+            size = sum(r["size"] for r in d["rows"] if r["status"] in ("new", "updated"))
+            total += size
+            print(f"  ok {u['id']}: {c['new']} new, {c['updated']} updated, {c['unchanged']} unchanged, "
+                  f"{c['skipped']} skipped, {c['failed']} failed ({size / 1e6:.0f} MB)")
+        except Exception as e:      # one closed or odd course must not stop the rest
+            print(f"  FAIL {u['id']}: {str(e)[:200]}")
+    print(f"total {total / 1e6:.0f} MB")
+
+
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
@@ -381,7 +457,14 @@ def main() -> None:
     ap.add_argument("--unit", nargs="*")
     ap.add_argument("--no-files", action="store_true", help="don't download announcement attachments or module files")
     ap.add_argument("--videos", action="store_true", help="also mirror module videos and audio (large)")
+    ap.add_argument("--past", action="store_true",
+                    help="mirror past courses whose Canvas access is still open (needs course_inventory.py); "
+                         "with --unit, only those codes or unit ids")
+    ap.add_argument("--dry-run", action="store_true", help="with --past: list files and sizes, download nothing")
     args = ap.parse_args()
+    if args.past:
+        sync_past(args.unit, args.dry_run, args.videos)
+        return
     courses = get("courses", enrollment_state="active", per_page=100)
     for u in work_units(args.unit, args.allow_sat):
         course = find_course(u, courses)

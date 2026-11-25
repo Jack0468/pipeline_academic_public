@@ -17,8 +17,8 @@ from zoneinfo import ZoneInfo
 
 import yaml
 
-from paths import (CALENDAR_DIR, CONFIG, EXAMS_ICS, ONEDRIVE_COURSEWORK, OUT, PROMPTS, REPO, STATE, STUDY_ICS, VAULT,
-                   unit_rel)
+from paths import (CALENDAR_DIR, CONFIG, CURRENT_LAYOUT, EXAMS_ICS, LAYOUTS, ONEDRIVE_COURSEWORK, OUT, PROMPTS, REPO,
+                   STATE, STUDY_ICS, VAULT, layout, unit_rel)
 
 TZ = ZoneInfo("Australia/Sydney")
 
@@ -79,8 +79,17 @@ def vault_unit_dir(u: dict) -> Path:
 
 
 def unit_path(u: dict, key: str) -> Path:
-    """A note or folder of a unit, by key (paths.py). The only way scripts locate unit files."""
-    return vault_unit_dir(u) / unit_rel(u, key)
+    """A note or folder of a unit, by key (paths.py). The only way scripts locate unit files.
+
+    A unit still on layout 1 may already hold a file where the standard layout puts it (e.g. reference/exam_intel.md,
+    written by hand or by a newer tool). When the layout-1 place is empty and the standard one exists, that file is
+    used, so readers find it and writers update it in place instead of starting a second copy."""
+    p = vault_unit_dir(u) / unit_rel(u, key)
+    if not p.exists() and layout(u) == 1 and key in LAYOUTS[CURRENT_LAYOUT]:
+        alt = vault_unit_dir(u) / LAYOUTS[CURRENT_LAYOUT][key].replace("{code}", str(u.get("code", "")))
+        if alt.exists():
+            return alt
+    return p
 
 
 def unit_link(u: dict, key: str, label: str, table: bool = False) -> str:

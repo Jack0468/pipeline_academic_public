@@ -80,7 +80,8 @@ def inputs(u) -> tuple[list[str], str]:
         texts.append(intel)
     nums = sorted({int(m.group(1)) for p in unit_path(u, "recall").glob("*.md")          # the unit's real lecture numbers
                    if (m := re.search(r"_L(\d+)[a-z]?$", p.stem))} - {0})          # L0 is usually the unit outline
-    gap = ("lectures " + ", ".join(f"L{i}" for i in nums if i not in covered)) if covered else "none known"
+    missing = [f"L{i}" for i in nums if i not in covered]
+    gap = ("lectures " + ", ".join(missing)) if covered and missing else "none known"   # all covered: no gap section
     return texts, gap
 
 
